@@ -3,29 +3,17 @@ import logging
 import os
 import random
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
+import toml
 from discord import ChannelType, Client, File, Intents, Message
 
 from ssmerge46.umamerge import stitch
 
 logger = logging.getLogger("discord")
-
-USAGE = """```
-スキル表示画面・因子表示画面を分割して撮影した複数のスクリーンショットを1枚に結合します。
-
-使い方:
-    - このbotが所属しているチャンネルで '/ssm' と入力し、合成したい画像を *一度に* 添付してください。
-    - このbotにDMとして直接送信することも可能で、その場合コマンド入力は不要です。
-
-注意:
-    - 各画像は解像度を一致させてください。
-    - 結合位置の検出のため、各画像はスキル表示部分1～1.5個分の重複部分（のりしろ）を作ってください。
-    - 結合位置が見つからなかった場合は、単純に真下に結合します。
-    - Botのサーバーダウンでたまに応答しないことがありますが悪しからず。
-```"""
 
 # Intents
 intents = Intents.default()
@@ -35,6 +23,33 @@ intents.message_content = True
 
 # Client
 client = Client(intents=intents)
+
+
+def _get_version() -> str:
+    try:
+        d = toml.load(Path(__file__).parent.parent.parent / "pyproject.toml")
+        return d["tool"]["poetry"]["version"]
+    except Exception as e:
+        logger.warn(e, exc_info=True)
+        return ""
+
+
+version = _get_version()
+
+USAGE = f"""```
+# SSマージ四郎 ver.{version}
+    スキル表示画面・因子表示画面を分割して撮影した複数のスクリーンショットを1枚に結合します。
+
+## 使い方
+    - このbotが所属しているチャンネルで '/ssm' と入力し、合成したい画像を *一度に* 添付してください。
+    - このbotにDMとして直接送信することも可能で、その場合コマンド入力は不要です。
+
+## 注意
+    - 各画像は解像度を一致させてください。
+    - 結合位置の検出のため、各画像はスキル表示部分1～1.5個分の重複部分（のりしろ）を作ってください。
+    - 結合位置が見つからなかった場合は、単純に真下に結合します。
+    - Botのサーバーダウンでたまに応答しないことがありますが悪しからず。
+```"""
 
 
 @client.event
