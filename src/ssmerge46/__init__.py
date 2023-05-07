@@ -1,11 +1,17 @@
 import io
+import logging
 import os
+import random
+from datetime import datetime
+from typing import Optional
 
 import cv2
 import numpy as np
 from discord import ChannelType, Client, File, Intents, Message
 
 from ssmerge46.umamerge import stitch
+
+logger = logging.getLogger("discord")
 
 USAGE = """```
 スキル表示画面・因子表示画面を分割して撮影した複数のスクリーンショットを1枚に結合します。
@@ -44,18 +50,15 @@ async def on_message(message: Message):
     if message.channel.type == ChannelType.private or message.content.startswith(
         "/ssm"
     ):
+        attachments = message.attachments
+        if len(attachments) == 0:
+            await message.channel.send(USAGE)
+            return
+        if len(attachments) < 2:
+            await message.channel.send("2枚以上の画像を送信してください。対応形式は png, jpg です。")
+            return
+
         try:
-            attachments = message.attachments
-            if len(attachments) == 0:
-                await message.channel.send(USAGE)
-                return
-
-            if len(attachments) < 2:
-                await message.channel.send(
-                    """```2枚以上の画像を読み込んでください。対応形式は png, jpg です。```"""
-                )
-                return
-
             imgs = []
             for attachment in attachments:
                 filename = attachment.filename
@@ -63,30 +66,49 @@ async def on_message(message: Message):
                     filename.endswith(".png")
                     or filename.endswith(".jpg")
                     or filename.endswith(".jpeg")
+                    or filename.endswith(".webp")
                 ):
                     buf = await attachment.read()
                     arr = np.frombuffer(buf, np.uint8)
                     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
                     imgs.append(img)
+                else:
+                    logger.warn(f"Invalid file type : {filename}")
+                    raise ValueError(f"非対応の画像形式です。対応形式は png, jpg です。 : {filename}")
 
             # merge
             stitched = stitch(imgs)
 
             success, encoded = cv2.imencode(".png", stitched)
             if not success:
-                await message.channel.send("""```出力画像のエンコードに失敗しました。```""")
+                await message.channel.send("出力画像のエンコードに失敗しました。")
             data = io.BytesIO(encoded)
-            file = file = File(data, "out.png")
+            now = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
+            file = file = File(data, f"{now}.png")
 
-            if message.channel.type == ChannelType.private:
-                msg = """(´・ω・｀) できたよお兄ちゃん！"""
-                await message.channel.send(msg, file=file)
-                return
-
-            await message.channel.send(file=file)
-            return
+            msg = _get_random_msg()
+            await message.channel.send(msg, file=file)
         except Exception as e:
-            await message.channel.send(f"An error ocurred: {e}")
+            logger.warn(e, exc_info=True)
+            await message.channel.send(f"[ERROR] {e}")
+        finally:
+            author = message.author
+            logger.info(
+                "[%s %s %s] %d %s",
+                author.id,
+                author.name,
+                author.display_name,
+                len(attachments),
+                message.content,
+            )
+
+
+WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 15, "フェーングロッテン": 5, "": 80}
+
+
+def _get_random_msg() -> Optional[str]:
+    msg = random.choices(list(WEIGHTS.keys()), weights=list(WEIGHTS.values()))[0]
+    return msg if msg else None
 
 
 def start():

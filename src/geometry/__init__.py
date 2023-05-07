@@ -29,10 +29,7 @@ class Vector2d(tuple, Serializable):
         return type(self)(self.x + x, self.y + y)
 
     def dot(self, other: VectorLike) -> float:
-        if isinstance(other, tuple):
-            return self.x * other[0] + self.y * other[1]
-        else:
-            raise TypeError
+        return self.x * other[0] + self.y * other[1]
 
     def scale(self, x: float, y: float) -> Vector2d:
         return type(self)(self.x * x, self.y * y)

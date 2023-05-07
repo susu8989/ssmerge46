@@ -47,7 +47,7 @@ def stitch(
     """
     num = len(imgs)
     if num < 1:
-        raise ValueError("'imgs' is empty")
+        raise ValueError("'imgs' が空です。")
     if len(imgs) == 1:
         return imgs[0]
 
@@ -61,7 +61,7 @@ def stitch(
 
     base_h, base_w, _ = sorted_imgs[0].shape
     if any(base_w != img.shape[1] for img in sorted_imgs):
-        raise ValueError("Image width not matched")
+        raise ValueError("画像の幅が一致しません。")
 
     # 各領域の絶対座標
     tgt_rect = cv2wrap.ratio_rect_to_px(tgt_area_ratio, sorted_imgs[0])
@@ -154,11 +154,11 @@ def calc_scroll_bar_pos(
     tgt_rect = cv2wrap.ratio_rect_to_px(bar_area_ratio, img)
     cropped = cv2wrap.crop_img(img, tgt_rect)
     gray_scaled = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
-    _, binarized = cv2.threshold(gray_scaled, 144, 255, cv2.THRESH_BINARY)
+    _, binarized = cv2.threshold(gray_scaled, binary_thresh, 255, cv2.THRESH_BINARY)
     horizontal_summed = np.sum(binarized, axis=1)
 
     # バーの暗色部分が存在するY座標のリスト
     black_ys = np.where(horizontal_summed < gray_scaled.shape[1] * 255)
-    if len(black_ys) == 0:
-        raise Exception("Failed to detect scroll bar")
+    if len(black_ys) == 0 or black_ys[0].size == 0:
+        raise Exception("スクロールバーの検知に失敗しました。")
     return int(tgt_rect.h) + int(np.min(black_ys))

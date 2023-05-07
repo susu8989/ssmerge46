@@ -1,6 +1,7 @@
 import sys
 
 sys.path.append("./src")
+
 try:
     import ssmerge46
 
