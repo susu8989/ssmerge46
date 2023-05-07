@@ -89,9 +89,12 @@ async def on_message(message: Message):
             await message.channel.send(f"An error ocurred: {e}")
 
 
-if __name__ == "__main__":
+def start():
     token = os.getenv("TOKEN")
     if not token:
         raise ValueError("'TOKEN' not defined in environment variables.")
-
     client.run(token)
+
+
+if __name__ == "__main__":
+    start()
