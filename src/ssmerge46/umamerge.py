@@ -123,9 +123,10 @@ def preproc_imgs(
     """
     results = []
     for img in imgs:
-        h, w, _ = img.shape
+        unmargined = cv2wrap.unmargin(img, 20)
+        h, w, _ = unmargined.shape
         cropping_rect = Rect.from_xywh(0, 0, w, h).fit_inner(aspect)
-        cropped = cv2wrap.crop_img(img, cropping_rect)
+        cropped = cv2wrap.crop_img(unmargined, cropping_rect)
         cropped_h, cropped_w, _ = cropped.shape
         if cropped_w > limit_w:
             dsize = (limit_w, round(cropped_h * limit_w / cropped_w))
