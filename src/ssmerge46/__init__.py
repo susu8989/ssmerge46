@@ -1,8 +1,7 @@
 import io
 import logging
-import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -11,9 +10,14 @@ import numpy as np
 import toml
 from discord import ChannelType, Client, File, Intents, Message
 
+from ssmerge46 import config
 from ssmerge46.umamerge import stitch
 
 logger = logging.getLogger("discord")
+
+masanori_margin = timedelta(days=1)
+last_masanori_dt = datetime.today() - masanori_margin
+
 
 # Intents
 intents = Intents.default()
@@ -62,9 +66,10 @@ async def on_message(message: Message):
     if message.author == client.user:
         return
 
-    if message.channel.type == ChannelType.private or message.content.startswith(
-        "/ssm"
-    ):
+    now = datetime.now()
+    content = message.content
+
+    if message.channel.type == ChannelType.private or content.startswith("/ssm"):
         attachments = message.attachments
         if len(attachments) == 0:
             await message.channel.send(USAGE)
@@ -98,8 +103,8 @@ async def on_message(message: Message):
             if not success:
                 await message.channel.send("出力画像のエンコードに失敗しました。")
             data = io.BytesIO(encoded)
-            now = datetime.now().strftime("%Y%m%d%H%M%S%f")[:-3]
-            file = file = File(data, f"{now}.png")
+            now_str = now.strftime("%Y%m%d%H%M%S%f")[:-3]
+            file = file = File(data, f"{now_str}.png")
 
             msg = _get_random_msg()
             await message.channel.send(msg, file=file)
@@ -114,23 +119,39 @@ async def on_message(message: Message):
                 author.name,
                 author.display_name,
                 len(attachments),
-                message.content,
+                content,
             )
+        return
+
+    global last_masanori_dt
+    if (
+        config.MASANORI
+        and (now - last_masanori_dt) > masanori_margin
+        and len(content) <= 16
+    ):
+        if content == "本命は？" or content == "本命教えて":
+            msg = "フェーングロッテン"
+        elif content == "まさのり":
+            msg = "こーんにーちはー！"
+        else:
+            msg = ""
+
+        if msg:
+            await message.channel.send("フェーングロッテン")
 
 
-WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 15, "フェーングロッテン": 5, "": 80}
+WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 9, "フェーングロッテン": 1, "": 90}
 
 
 def _get_random_msg() -> Optional[str]:
+    if not config.MASANORI:
+        return None
     msg = random.choices(list(WEIGHTS.keys()), weights=list(WEIGHTS.values()))[0]
     return msg if msg else None
 
 
 def start():
-    token = os.getenv("TOKEN")
-    if not token:
-        raise ValueError("'TOKEN' not defined in environment variables.")
-    client.run(token)
+    client.run(config.TOKEN)
 
 
 if __name__ == "__main__":
