@@ -75,7 +75,7 @@ async def on_message(message: Message):
             await message.channel.send(USAGE)
             return
         if len(attachments) < 2:
-            await message.channel.send("2枚以上の画像を送信してください。対応形式は png, jpg です。")
+            await message.channel.send("2枚以上の画像を送信してください。対応形式は png / jpg です。")
             return
 
         try:
@@ -94,7 +94,7 @@ async def on_message(message: Message):
                     imgs.append(img)
                 else:
                     logger.warn(f"Invalid file type : {filename}")
-                    raise ValueError(f"非対応の画像形式です。対応形式は png, jpg です。 : {filename}")
+                    raise ValueError(f"非対応の画像形式です。対応形式は png / jpg です。 : {filename}")
 
             # merge
             stitched = stitch(imgs)
@@ -129,10 +129,10 @@ async def on_message(message: Message):
         and (now - last_masanori_dt) > masanori_margin
         and len(content) <= 16
     ):
-        if content == "本命は？" or content == "本命教えて":
+        if content.endswith("本命は？") or content.endswith("本命教えて"):
             msg = "フェーングロッテン"
         elif content == "まさのり":
-            msg = "こーんにーちはー！"
+            msg = "こ～んに～ちは～！！！"
         else:
             msg = ""
 
@@ -140,7 +140,7 @@ async def on_message(message: Message):
             await message.channel.send("フェーングロッテン")
 
 
-WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 9, "フェーングロッテン": 1, "": 90}
+WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 10, "フェーングロッテン": 5, "CR雅紀だよ！": 1, "": 84}
 
 
 def _get_random_msg() -> Optional[str]:
