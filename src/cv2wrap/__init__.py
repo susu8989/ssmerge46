@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 
-from cv2wrap.color import BLACK, WHITE, BGRImage, BGRLike, Cv2Image
+from cv2wrap.color import BLACK, WHITE, BGRImage, BGRLike, Cv2Image, GrayImage
 from geometry import Rect, Vector2d
 
 
@@ -40,6 +40,14 @@ def write(filename: Union[str, Path], img: BGRImage, *params: int) -> bool:
         return True
     else:
         return False
+
+
+def bgr2gray(bgr: BGRImage) -> GrayImage:
+    return cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+
+
+def gray2bgr(bgr: BGRImage) -> GrayImage:
+    return cv2.cvtColor(bgr, cv2.COLOR_GRAY2BGR)
 
 
 def ratio_rect_to_px(normed_rect: Rect, img: Cv2Image) -> Rect:
@@ -74,7 +82,7 @@ def px_rect_to_ratio(rect: Rect, img: Cv2Image) -> Rect:
     return rect.scale(1 / w, 1 / h).intersection(Rect(0.0, 0.0, 1.0, 1.0))
 
 
-def crop_img(img: BGRImage, rect: Rect) -> BGRImage:
+def crop_img(img: Cv2Image, rect: Rect) -> Cv2Image:
     """画像配列を矩形領域で切り抜く.
 
     返り値は img のビューであり, メモリは共有されることに注意.
@@ -88,8 +96,24 @@ def crop_img(img: BGRImage, rect: Rect) -> BGRImage:
     if not rect:
         return img
     x1, y1, x2, y2 = rect.to_xyxy_int_tuple()
-    hoge = img[y1:y2, x1:x2, :]
-    return hoge
+    return img[y1:y2, x1:x2]
+
+
+def crop_fixed_aspect_ratio(img: Cv2Image, aspect_ratio: float) -> Cv2Image:
+    """画像配列を指定アスペクト比で切り抜く.
+
+    img が aspect_ratio より縦長の場合は上下, 横長の場合は左右が切り取られる.
+    返り値は img のビューであり, メモリは共有されることに注意.
+
+    Args:
+        img (Cv2Image): 切り抜かれる画像.
+        aspect_ratio (float): アスペクト比 (横/縦). img のピクセル数によって指定された矩形.
+    Returns:
+        Cv2Image: img のスライス.
+    """
+    h, w = img.shape[:2]
+    cropping_rect = Rect.from_xywh(0, 0, w, h).fit_inner(aspect_ratio)
+    return crop_img(img, cropping_rect)
 
 
 def put_img(img: BGRImage, img2: BGRImage, pos: Vector2d) -> BGRImage:

@@ -109,30 +109,54 @@ def stitch(
 
 
 def preproc_imgs(
-    imgs: Sequence[BGRImage], limit_w: int = 720, aspect: float = 9 / 16
+    imgs: Sequence[BGRImage], limit_w: int = 720, aspect_ratio: float = 9 / 16
 ) -> List[BGRImage]:
     """解像度を調整し, ウマ表示部を切り抜く.
 
     Args:
         imgs (Sequence[BGRImage]): 結合するスクリーンショット群.
         limit_w (int, optional): 最大横解像度 (px). Defaults to 1080.
-        aspect (float, optional): 切り抜くアスペクト比 (横/縦). Defaults to 9/16.
+        aspect_ratio (float, optional): 切り抜くアスペクト比 (横/縦). Defaults to 9/16.
 
     Returns:
         List[BGRImage]: リサイズ済画像のリスト.
     """
     results = []
     for img in imgs:
-        unmargined = cv2wrap.unmargin(img, 20)
-        h, w, _ = unmargined.shape
-        cropping_rect = Rect.from_xywh(0, 0, w, h).fit_inner(aspect)
-        cropped = cv2wrap.crop_img(unmargined, cropping_rect)
+        window_area = detect_window_area(img)
+        unmargined = cv2wrap.unmargin(cv2wrap.crop_img(img, window_area), 20)
+
+        # 中心から固定アスペクト比に合わせる
+        cropped = cv2wrap.crop_fixed_aspect_ratio(unmargined, aspect_ratio=aspect_ratio)
         cropped_h, cropped_w, _ = cropped.shape
         if cropped_w > limit_w:
             dsize = (limit_w, round(cropped_h * limit_w / cropped_w))
             cropped = cv2.resize(cropped, dsize=dsize)
         results.append(cropped)
     return results
+
+
+def detect_window_area(img: BGRImage, min_ratio: float = 0.9) -> Rect:
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 100, 200)
+
+    h, w = img.shape[:2]
+    contours, hierarchy = cv2.findContours(
+        edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    filterd_by_area_ratio = list(
+        filter(lambda x: cv2.contourArea(x) > h * w * min_ratio, contours)
+    )
+    if not filterd_by_area_ratio:
+        return Rect.from_xywh(0, 0, w, h)
+    app_area_contour = min(
+        filterd_by_area_ratio,
+        key=cv2.contourArea,
+    )
+
+    rect = Rect.from_xywh(*cv2.boundingRect(app_area_contour))
+    return rect
 
 
 def calc_scroll_bar_pos(

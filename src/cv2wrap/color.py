@@ -22,6 +22,14 @@ class BGR(tuple):
         # TODO: validate range
         return tuple.__new__(cls, (b, g, r))
 
+    @classmethod
+    def from_bgr(cls, b: int, g: int, r: int) -> BGR:
+        return cls(b, g, r)
+
+    @classmethod
+    def from_rgb(cls, r: int, g: int, b: int) -> BGR:
+        return cls(b, g, r)
+
     def to_hsv(self) -> HSV:
         return bgr2hsv(self)
 
@@ -62,7 +70,7 @@ def hsv2bgr(hsv: HSVLike) -> BGR:
     return BGR(*cv2.cvtColor(np.array([[hsv]], np.uint8), cv2.COLOR_HSV2BGR)[0][0])
 
 
-def in_bgr_range(bgr_img: BGRImage, lower: HSVLike, upper: HSVLike) -> GrayImage:
+def in_bgr_range(bgr_img: BGRImage, lower: BGRLike, upper: BGRLike) -> GrayImage:
     return cast(GrayImage, cv2.inRange(bgr_img, lower, upper))
 
 
@@ -72,10 +80,10 @@ def in_hsv_range(bgr_img: BGRImage, lower: HSVLike, upper: HSVLike) -> GrayImage
 
 
 def in_bgr_range_pm(
-    bgr_img: BGRImage, bgr: BGRLike, hsv_margins: tuple[int, int, int]
+    bgr_img: BGRImage, bgr: BGRLike, bgr_margins: tuple[int, int, int]
 ) -> GrayImage:
-    lower = HSV(*map(lambda x: x[0] + x[1], zip(bgr, hsv_margins)))
-    upper = HSV(*map(lambda x: x[0] - x[1], zip(bgr, hsv_margins)))
+    lower = BGR(*map(lambda x: x[0] - x[1], zip(bgr, bgr_margins)))
+    upper = BGR(*map(lambda x: x[0] + x[1], zip(bgr, bgr_margins)))
     print(lower, upper)
     return in_bgr_range(bgr_img, lower, upper)
 

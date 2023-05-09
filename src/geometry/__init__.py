@@ -153,6 +153,10 @@ class Rect(tuple, Serializable):
     def area(self) -> float:
         return self.w * self.h
 
+    @property
+    def aspect_ratio(self) -> float:
+        return self.w / self.h
+
     def move(self, x: float, y: float) -> Rect:
         return Rect.from_xywh(self.x + x, self.y + y, self.w, self.h)
 
@@ -196,8 +200,7 @@ class Rect(tuple, Serializable):
 
     def fit_inner(self, aspect_ratio: float) -> Rect:
         center_x, center_y = self.center
-        cur_ratio: float = self.w / self.h
-        if cur_ratio > aspect_ratio:
+        if self.aspect_ratio > aspect_ratio:
             # self is wider
             # then cut LEFT and RIGHT
             new_w = self.h * aspect_ratio
@@ -208,6 +211,13 @@ class Rect(tuple, Serializable):
             new_h = self.w / aspect_ratio
             new_rect = Rect.from_center(center_x, center_y, self.w, new_h)
         return new_rect
+
+    def expand(self, left: float, top: float, right: float, bot: float) -> Rect:
+        x, y, x2, y2 = self.to_xyxy_tuple()
+        return Rect.from_xyxy(x - left, y - top, x2 + right, y2 + bot)
+
+    def expand_all(self, length: float) -> Rect:
+        return self.expand(length, length, length, length)
 
     def to_int_tuple(
         self, _round: bool = True, one_if_zero: bool = True
