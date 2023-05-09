@@ -137,26 +137,35 @@ def preproc_imgs(
 
 
 def detect_window_area(img: BGRImage, min_ratio: float = 0.9) -> Rect:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 100, 200)
-
+    margin = 10
     h, w = img.shape[:2]
+    org_size = Rect.from_xywh(0, 0, w, h)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    margined = cv2.copyMakeBorder(
+        gray, margin, margin, margin, margin, cv2.BORDER_CONSTANT, value=0
+    )
+    edges = cv2wrap.morph_close(
+        cv2.Canny(margined, 100, 200), np.ones((1, 3), dtype=np.uint8)
+    )
+
     contours, hierarchy = cv2.findContours(
         edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
     )
 
     filterd_by_area_ratio = list(
-        filter(lambda x: cv2.contourArea(x) > h * w * min_ratio, contours)
+        filter(lambda x: cv2.contourArea(x) > h * w * 0.5, contours)
     )
     if not filterd_by_area_ratio:
-        return Rect.from_xywh(0, 0, w, h)
+        return org_size
+
     app_area_contour = min(
         filterd_by_area_ratio,
         key=cv2.contourArea,
     )
-
-    rect = Rect.from_xywh(*cv2.boundingRect(app_area_contour))
-    return rect
+    app_area = Rect.from_xywh(*cv2.boundingRect(app_area_contour)).move(
+        -margin, -margin
+    )
+    return app_area.intersection(org_size)
 
 
 def calc_scroll_bar_pos(

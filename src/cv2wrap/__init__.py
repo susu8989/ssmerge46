@@ -235,3 +235,15 @@ def unmargin_rect(img: BGRImage, scan_px: Optional[int] = None) -> Rect:
     new_bot = int(np.max(scan_y_from_bot[0])) + 1
 
     return Rect.from_xyxy(new_left, new_top, new_right, new_bot)
+
+
+def morph_open(
+    img: BGRImage, kernel=np.ones((3, 3), np.uint8), iterations=1
+) -> BGRImage:
+    return cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel, iterations=iterations)
+
+
+def morph_close(
+    img: BGRImage, kernel=np.ones((3, 3), np.uint8), iterations=1
+) -> BGRImage:
+    return cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel, iterations=iterations)
