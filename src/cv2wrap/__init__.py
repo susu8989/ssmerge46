@@ -224,10 +224,10 @@ def unmargin_rect(img: BGRImage, scan_px: Optional[int] = None) -> Rect:
     scan_img_x = crop_img(img, scan_rect_x)
     scan_img_y = crop_img(img, scan_rect_y)
 
-    scan_x_from_left = np.where(np.all(scan_img_x != left_color, axis=2))
-    scan_x_from_right = np.where(np.all(scan_img_x != right_color, axis=2))
-    scan_y_from_top = np.where(np.all(scan_img_y != top_color, axis=2))
-    scan_y_from_bot = np.where(np.all(scan_img_y != bot_color, axis=2))
+    scan_x_from_left = np.where(np.any(scan_img_x != left_color, axis=2))
+    scan_x_from_right = np.where(np.any(scan_img_x != right_color, axis=2))
+    scan_y_from_top = np.where(np.any(scan_img_y != top_color, axis=2))
+    scan_y_from_bot = np.where(np.any(scan_img_y != bot_color, axis=2))
 
     new_left = int(np.min(scan_x_from_left[1]))
     new_right = int(np.max(scan_x_from_right[1])) + 1

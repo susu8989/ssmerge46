@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 import cv2wrap as cv2wrap
-from cv2wrap.color import BGRImage
+from cv2wrap.color import BGR, BGRImage, in_bgr_range_pm
 from geometry import Rect
 from recogn.matching import match_max
 from recogn.template import Template
@@ -122,15 +122,26 @@ def preproc_imgs(
         List[BGRImage]: リサイズ済画像のリスト.
     """
     results = []
-    for img in imgs:
-        window_area = detect_window_area(img)
-        unmargined = cv2wrap.unmargin(cv2wrap.crop_img(img, window_area), 20)
 
-        # 中心から固定アスペクト比に合わせる
-        cropped = cv2wrap.crop_fixed_aspect_ratio(unmargined, aspect_ratio=aspect_ratio)
-        cropped_h, cropped_w, _ = cropped.shape
-        if cropped_w > limit_w:
-            dsize = (limit_w, round(cropped_h * limit_w / cropped_w))
+    if not imgs:
+        return []
+
+    base = imgs[0]
+    app_rect = detect_window_area(base)
+    unwindowed = cv2wrap.crop_img(base, app_rect)
+
+    unmargin_rect = (
+        app_rect  # if google play games
+        if app_rect.w > app_rect.h
+        else cv2wrap.unmargin_rect(unwindowed, 30).move(app_rect.x, app_rect.y)
+    )
+
+    # 中心から固定アスペクト比に合わせる
+    cropping_rect = unmargin_rect.fit_inner(aspect_ratio)
+    for img in imgs:
+        cropped = cv2wrap.crop_img(img, cropping_rect)
+        if cropping_rect.w > limit_w:
+            dsize = (limit_w, round(cropping_rect.h * limit_w / cropping_rect.w))
             cropped = cv2.resize(cropped, dsize=dsize)
         results.append(cropped)
     return results
@@ -148,9 +159,7 @@ def detect_window_area(img: BGRImage, min_ratio: float = 0.9) -> Rect:
         cv2.Canny(margined, 100, 200), np.ones((1, 3), dtype=np.uint8)
     )
 
-    contours, hierarchy = cv2.findContours(
-        edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
-    )
+    contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     filterd_by_area_ratio = list(
         filter(lambda x: cv2.contourArea(x) > h * w * 0.5, contours)
@@ -185,8 +194,8 @@ def calc_scroll_bar_pos(
     Returns:
         int: スクロールバーの暗色部分の上端Y座標.
     """
-    tgt_rect = cv2wrap.ratio_rect_to_px(bar_area_ratio, img)
-    cropped = cv2wrap.crop_img(img, tgt_rect)
+    scroll_bar_rect = cv2wrap.ratio_rect_to_px(bar_area_ratio, img)
+    cropped = cv2wrap.crop_img(img, scroll_bar_rect)
     gray_scaled = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
     _, binarized = cv2.threshold(gray_scaled, binary_thresh, 255, cv2.THRESH_BINARY)
     horizontal_summed = np.sum(binarized, axis=1)
@@ -195,4 +204,25 @@ def calc_scroll_bar_pos(
     black_ys = np.where(horizontal_summed < gray_scaled.shape[1] * 255)
     if len(black_ys) == 0 or black_ys[0].size == 0:
         raise Exception("スクロールバーの検知に失敗しました。")
-    return int(tgt_rect.h) + int(np.min(black_ys))
+    return int(scroll_bar_rect.h) + int(np.min(black_ys))
+
+
+def detect_scroll_bar(
+    img: BGRImage,
+    light_bgr: BGR = BGR(218, 210, 210),
+    dark_bgr: BGR = BGR(138, 122, 122),
+    bgr_tolerance: int = 8,
+    expantion=(2, 6, 2, 6),
+) -> Rect:
+    img = cv2.resize(img, dsize=(360, 640))
+    light = in_bgr_range_pm(img, light_bgr, (bgr_tolerance,) * 3)
+    dark = in_bgr_range_pm(img, dark_bgr, (bgr_tolerance,) * 3)
+    summed = light + dark
+
+    m1 = cv2.morphologyEx(summed, cv2.MORPH_CLOSE, np.ones((5, 1), np.uint8))
+    m2 = cv2.morphologyEx(m1, cv2.MORPH_OPEN, np.ones((50, 1), np.uint8))
+
+    contours, _ = cv2.findContours(m2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contour = max(contours, key=cv2.contourArea)
+    rect = Rect.from_xywh(*cv2.boundingRect(contour)).expand(*expantion)
+    return rect

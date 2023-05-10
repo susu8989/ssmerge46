@@ -84,7 +84,6 @@ def in_bgr_range_pm(
 ) -> GrayImage:
     lower = BGR(*map(lambda x: x[0] - x[1], zip(bgr, bgr_margins)))
     upper = BGR(*map(lambda x: x[0] + x[1], zip(bgr, bgr_margins)))
-    print(lower, upper)
     return in_bgr_range(bgr_img, lower, upper)
 
 
