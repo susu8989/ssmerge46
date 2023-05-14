@@ -137,7 +137,8 @@ async def on_message(message: Message):
             msg = ""
 
         if msg:
-            await message.channel.send("フェーングロッテン")
+            await message.channel.send(msg)
+            last_masanori_dt = now
 
 
 WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 10, "フェーングロッテン": 5, "CR雅紀だよ！": 1, "": 84}
