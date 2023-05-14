@@ -31,10 +31,10 @@ pytest = "^7.3.1"
 
 [tool.black]
 target-version = ["py39"]
-line-length = 88
+line-length = 100
 
 [tool.isort]
-line_length = 88
+line_length = 100
 include_trailing_comma = true
 
 [tool.mypy]
