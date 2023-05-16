@@ -12,6 +12,7 @@ from discord import ChannelType, Client, File, Intents, Message
 
 from cv2wrap.image import BgrImage
 from ssmerge46 import config
+from ssmerge46.imgproc import stack_left_to_right, stack_top_to_bot
 from ssmerge46.umamerge import ScrollStitcher
 
 logger = logging.getLogger("discord")
@@ -99,10 +100,15 @@ async def on_message(message: Message):
                     logger.warn(f"Invalid file type : {filename}")
                     raise ValueError(f"非対応の画像形式です。対応形式は png / jpg です。 : {filename}")
 
-            # merge
-            stitched = stitcher.stitch(imgs)
-            logger.info("%s", stitched.wh)
-            success, encoded = cv2.imencode(".png", stitched)
+            if content.startswith("/ssmh"):
+                merged = stack_left_to_right(imgs)
+            elif content.startswith("/ssmv"):
+                merged = stack_top_to_bot(imgs)
+            else:
+                # merge
+                merged = stitcher.stitch(imgs)
+            logger.info("%s", merged.wh)
+            success, encoded = cv2.imencode(".png", merged)
             if not success:
                 await message.channel.send("出力画像のエンコードに失敗しました。")
             data = io.BytesIO(encoded)

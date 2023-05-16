@@ -1,9 +1,29 @@
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 
 from cv2wrap import BgrImage
 from geometry import Rect, Vector2d
+
+
+def stack_left_to_right(imgs: List[BgrImage]) -> BgrImage:
+    base = imgs[0]
+    to_stack = [base]
+    for img in imgs[1:]:
+        new_h = base.h
+        new_w = int(img.w * base.h / img.h)
+        to_stack.append(img.resize_img((new_w, new_h)))
+    return np.hstack(to_stack).view(BgrImage)
+
+
+def stack_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
+    base = imgs[0]
+    to_stack = [base]
+    for img in imgs[1:]:
+        new_w = base.w
+        new_h = int(img.h * base.w / img.w)
+        to_stack.append(img.resize_img((new_w, new_h)))
+    return np.vstack(to_stack).view(BgrImage)
 
 
 def unmargin(img: BgrImage, scan_px: Optional[int] = None) -> BgrImage:
