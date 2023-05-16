@@ -197,7 +197,6 @@ packaging = ">=22.0"
 pathspec = ">=0.9.0"
 platformdirs = ">=2"
 tomli = {version = ">=1.1.0", markers = "python_version < \"3.11\""}
-typing-extensions = {version = ">=3.10.0.0", markers = "python_version < \"3.10\""}
 
 [package.extras]
 colorama = ["colorama (>=0.4.3)"]
@@ -693,6 +692,21 @@ files = [
 ]
 
 [[package]]
+name = "opencv-log"
+version = "1.4.0"
+description = "OpenCV based visual logger for debugging,logging and testing image processing code"
+category = "main"
+optional = false
+python-versions = ">=3.5,<4.0"
+files = [
+    {file = "opencv-log-1.4.0.tar.gz", hash = "sha256:27973a10f83b58868067869126d304754a5c1f438a33eb3754e0d4f78e2daee7"},
+    {file = "opencv_log-1.4.0-py3-none-any.whl", hash = "sha256:cbd3c838aceb6b0c8d865f40e68b4bdcca1680d36db139fd003b07533ccc0679"},
+]
+
+[package.dependencies]
+opencv-python = ">=3.3"
+
+[[package]]
 name = "opencv-python"
 version = "4.7.0.72"
 description = "Wrapper package for OpenCV python bindings."
@@ -711,7 +725,6 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.21.0", markers = "python_version <= \"3.9\" and platform_system == \"Darwin\" and platform_machine == \"arm64\""},
     {version = ">=1.21.2", markers = "python_version >= \"3.10\""},
     {version = ">=1.21.4", markers = "python_version >= \"3.10\" and platform_system == \"Darwin\""},
     {version = ">=1.22.0", markers = "python_version >= \"3.11\""},
@@ -1076,5 +1089,5 @@ multidict = ">=4.0"
 
 [metadata]
 lock-version = "2.0"
-python-versions = "^3.9.0"
-content-hash = "355de48c325fdace71f1a77d40f629838c845c7b8d3422e106c2aacc8c2ce47f"
+python-versions = "^3.10.0"
+content-hash = "49e204c1f32e62e195e528c2e23ba2465129bc1b20541306ad25eb081e9549ef"

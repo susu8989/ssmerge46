@@ -1,100 +1,120 @@
 from __future__ import annotations
 
-from typing import Union, cast
+from abc import ABC, abstractmethod
 
 import cv2
 import numpy as np
-import numpy.typing as npt
-
-# NOTE: 入出力形式を明示するために alias を作ったが, shape の厳密なチェックは掛からないので注意
-BGRImage = npt.NDArray[np.uint8]
-GrayImage = npt.NDArray[np.uint8]
-
-Cv2Image = Union[BGRImage, GrayImage]
+from typing_extensions import Self
 
 
-class BGR(tuple):
+class Color(ABC):
+    @abstractmethod
+    def to_bgr(self) -> Bgr:
+        pass
+
+    @abstractmethod
+    def to_hsv(self) -> Hsv:
+        pass
+
+    @abstractmethod
+    def to_gray(self) -> GrayScale:
+        pass
+
+
+class Bgr(tuple, Color):
     b: int  # 0-255
     g: int  # 0-255
     r: int  # 0-255
 
-    def __new__(cls, b: int, g: int, r: int) -> BGR:
+    def __new__(cls, b: int, g: int, r: int) -> Self:
         # TODO: validate range
         return tuple.__new__(cls, (b, g, r))
 
     @classmethod
-    def from_bgr(cls, b: int, g: int, r: int) -> BGR:
+    def from_bgr(cls, b: int, g: int, r: int) -> Self:
         return cls(b, g, r)
 
     @classmethod
-    def from_rgb(cls, r: int, g: int, b: int) -> BGR:
+    def from_rgb(cls, r: int, g: int, b: int) -> Self:
         return cls(b, g, r)
 
-    def to_hsv(self) -> HSV:
+    def to_bgr(self) -> Bgr:
+        return self
+
+    def to_hsv(self) -> Hsv:
         return bgr2hsv(self)
 
+    def to_gray(self) -> GrayScale:
+        return bgr2gray(self)
 
-class HSV(tuple):
+
+class Hsv(tuple, Color):
     h: int  # 0-179
     s: int  # 0-255
     v: int  # 0-255
 
-    def __new__(cls, h: int, s: int, v: int) -> HSV:
+    def __new__(cls, h: int, s: int, v: int) -> Hsv:
         # TODO: validate range
         return tuple.__new__(cls, (h, s, v))
 
-    def to_bgr(self) -> BGR:
+    def to_bgr(self) -> Bgr:
         return hsv2bgr(self)
 
+    def to_hsv(self) -> Hsv:
+        return self
 
-BLACK = BGR(0, 0, 0)
-GRAY = BGR(127, 127, 127)
-WHITE = BGR(255, 255, 255)
-
-BLUE = BGR(255, 0, 0)
-GREEN = BGR(0, 255, 0)
-RED = BGR(0, 0, 255)
-CYAN = BGR(255, 255, 0)
-MAGENTA = BGR(255, 0, 255)
-YELLOW = BGR(0, 255, 255)
-
-BGRLike = Union[tuple[int, int, int], BGR]
-HSVLike = Union[tuple[int, int, int], HSV]
+    def to_gray(self) -> GrayScale:
+        return hsv2gray(self)
 
 
-def bgr2hsv(bgr: BGRLike) -> HSV:
-    return HSV(*cv2.cvtColor(np.array([[bgr]], np.uint8), cv2.COLOR_BGR2HSV)[0][0])
+class GrayScale(int, Color):
+    def to_bgr(self) -> Bgr:
+        return gray2bgr(self)
+
+    def to_hsv(self) -> Hsv:
+        return gray2hsv(self)
+
+    def to_gray(self) -> GrayScale:
+        return self
 
 
-def hsv2bgr(hsv: HSVLike) -> BGR:
-    return BGR(*cv2.cvtColor(np.array([[hsv]], np.uint8), cv2.COLOR_HSV2BGR)[0][0])
+BLACK = Bgr(0, 0, 0)
+GRAY = Bgr(127, 127, 127)
+WHITE = Bgr(255, 255, 255)
+
+BLUE = Bgr(255, 0, 0)
+GREEN = Bgr(0, 255, 0)
+RED = Bgr(0, 0, 255)
+CYAN = Bgr(255, 255, 0)
+MAGENTA = Bgr(255, 0, 255)
+YELLOW = Bgr(0, 255, 255)
+
+BgrLike = tuple[int, int, int] | Bgr
+HsvLike = tuple[int, int, int] | Hsv
+GrayLike = int | GrayScale
+
+ColorLike = BgrLike | HsvLike | GrayLike
 
 
-def in_bgr_range(bgr_img: BGRImage, lower: BGRLike, upper: BGRLike) -> GrayImage:
-    return cast(GrayImage, cv2.inRange(bgr_img, lower, upper))
+def bgr2hsv(bgr: BgrLike) -> Hsv:
+    return Hsv(*cv2.cvtColor(np.array([[bgr]], np.uint8), cv2.COLOR_BGR2HSV)[0][0])
 
 
-def in_hsv_range(bgr_img: BGRImage, lower: HSVLike, upper: HSVLike) -> GrayImage:
-    hsv_img = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2HSV)
-    return cast(GrayImage, cv2.inRange(hsv_img, lower, upper))
+def bgr2gray(bgr: BgrLike) -> GrayScale:
+    return GrayScale(cv2.cvtColor(np.array([[bgr]], np.uint8), cv2.COLOR_BGR2GRAY)[0][0])
 
 
-def in_bgr_range_pm(
-    bgr_img: BGRImage, bgr: BGRLike, bgr_margins: tuple[int, int, int]
-) -> GrayImage:
-    lower = BGR(*map(lambda x: x[0] - x[1], zip(bgr, bgr_margins)))
-    upper = BGR(*map(lambda x: x[0] + x[1], zip(bgr, bgr_margins)))
-    return in_bgr_range(bgr_img, lower, upper)
+def hsv2bgr(hsv: HsvLike) -> Bgr:
+    return Bgr(*cv2.cvtColor(np.array([[hsv]], np.uint8), cv2.COLOR_HSV2BGR)[0][0])
 
 
-def in_hsv_range_pm(
-    bgr_img: BGRImage, hsv: HSVLike, hsv_margins: tuple[int, int, int]
-) -> GrayImage:
-    lower = HSV(*map(lambda x: x[0] - x[1], zip(hsv, hsv_margins)))
-    upper = HSV(*map(lambda x: x[0] + x[1], zip(hsv, hsv_margins)))
-    return in_hsv_range(bgr_img, lower, upper)
+def hsv2gray(hsv: HsvLike) -> GrayScale:
+    return GrayScale(bgr2gray(hsv2bgr(hsv)))
 
 
-def calc_white_ratio(gray: GrayImage) -> float:
-    white_pxs = cv2.countNonZero(gray)
-    return white_pxs / gray.size
+def gray2bgr(gray: GrayLike) -> Bgr:
+    return Bgr(*cv2.cvtColor(np.array([[gray]], np.uint8), cv2.COLOR_GRAY2BGR)[0][0])
+
+
+def gray2hsv(gray: GrayLike) -> Hsv:
+    return Hsv(*bgr2hsv(gray2bgr(gray)))

@@ -1,22 +1,20 @@
 import io
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import cv2
 import numpy as np
 import toml
 from discord import ChannelType, Client, File, Intents, Message
 
+from cv2wrap.image import BgrImage
 from ssmerge46 import config
-from ssmerge46.umamerge import stitch
+from ssmerge46.umamerge import ScrollStitcher
 
 logger = logging.getLogger("discord")
-
-masanori_margin = timedelta(days=1)
-last_masanori_dt = datetime.today() - masanori_margin
 
 
 # Intents
@@ -27,6 +25,8 @@ intents.message_content = True
 
 # Client
 client = Client(intents=intents)
+
+stitcher = ScrollStitcher()
 
 
 def _get_version() -> str:
@@ -51,14 +51,14 @@ USAGE = f"""```
 ## 注意
     - 各画像は解像度を一致させてください。
     - 結合位置の検出のため、各画像はスキル表示部分1～1.5個分の重複部分（のりしろ）を作ってください。
-    - 結合位置が見つからなかった場合は、単純に真下に結合します。
-    - Botのサーバーダウンでたまに応答しないことがありますが悪しからず。
+    - 結合位置が見つからなかった場合はエラーになります。のりしろを増やしてみてください。
+    - Botのサーバーダウンでたまに応答しないことがあります。
 ```"""
 
 
 @client.event
 async def on_ready():
-    print(f"We have logged in as {client.user}")
+    print(f"We have logged in as {client.user} ({version})")
 
 
 @client.event
@@ -79,7 +79,7 @@ async def on_message(message: Message):
             return
 
         try:
-            imgs = []
+            imgs: List[BgrImage] = []
             for attachment in attachments:
                 filename = attachment.filename
                 if (
@@ -90,15 +90,18 @@ async def on_message(message: Message):
                 ):
                     buf = await attachment.read()
                     arr = np.frombuffer(buf, np.uint8)
-                    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                    img = BgrImage.decode(arr)
+                    if img.px > config.MAX_RESOLUTION:
+                        scale = config.MAX_RESOLUTION / img.px
+                        img = img.scale_img(scale)
                     imgs.append(img)
                 else:
                     logger.warn(f"Invalid file type : {filename}")
                     raise ValueError(f"非対応の画像形式です。対応形式は png / jpg です。 : {filename}")
 
             # merge
-            stitched = stitch(imgs)
-
+            stitched = stitcher.stitch(imgs)
+            logger.info("%s", stitched.wh)
             success, encoded = cv2.imencode(".png", stitched)
             if not success:
                 await message.channel.send("出力画像のエンコードに失敗しました。")
@@ -123,12 +126,7 @@ async def on_message(message: Message):
             )
         return
 
-    global last_masanori_dt
-    if (
-        config.MASANORI
-        and (now - last_masanori_dt) > masanori_margin
-        and len(content) <= 16
-    ):
+    if config.MASANORI and random.random() < 0.01 and len(content) <= 32:
         if content.endswith("本命は？") or content.endswith("本命教えて"):
             msg = "フェーングロッテン"
         elif content == "まさのり":
@@ -138,7 +136,6 @@ async def on_message(message: Message):
 
         if msg:
             await message.channel.send(msg)
-            last_masanori_dt = now
 
 
 WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 10, "フェーングロッテン": 5, "CR雅紀だよ！": 1, "": 84}

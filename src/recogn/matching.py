@@ -8,8 +8,7 @@ import cv2
 import numpy as np
 from numpy.typing import ArrayLike
 
-import cv2wrap as cv2wrap
-from cv2wrap.color import Cv2Image
+from cv2wrap.image import BgrImage, GrayImage
 from geometry import Rect
 from recogn.template import Template
 
@@ -23,20 +22,16 @@ class MatchingResult:
     template: Template  # マッチしたテンプレート
 
 
-def _match_template(
-    img: Cv2Image, tmpl: Template, tgt: Optional[Rect] = None
-) -> Cv2Image:
-    cropped = cv2wrap.crop_img(img, tgt) if tgt else img
-    h, w = cropped.shape[:2]
+def _match_template(img: BgrImage, tmpl: Template, tgt: Optional[Rect] = None) -> GrayImage:
+    cropped = img.crop(tgt) if tgt else img
+    w, h = cropped.wh
     if h == 0 or w == 0:
         print("Image size is 0.")
-        return np.empty((0, 0), float)
+        return GrayImage(np.empty((0, 0), float))
 
-    t_h, t_w = tmpl.img.shape[:2]
+    t_w, t_h = tmpl.img.wh
     if h < t_h or w < t_w:
-        print(
-            f"The size of image ({w}, {h}) is smaller than the size of template image ({t_w}, {t_h})."
-        )
+        print(f"Image size ({w}, {h}) is smaller than template size ({t_w}, {t_h}).")
         return np.empty((0, 0), float)
 
     preproccessed = tmpl.preprocess(cropped)
@@ -44,7 +39,7 @@ def _match_template(
 
 
 def match_max(
-    img: Cv2Image,
+    img: BgrImage,
     tmpl: Template[T],
     thresh: Optional[float] = None,
     tgt: Rect = None,
@@ -52,7 +47,7 @@ def match_max(
     """テンプレートマッチングを実行し, 類似度が最大になる矩形領域を返す.
 
     Args:
-        img (Cv2Image): 被検索対象画像.
+        img (BgrImage): 被検索対象画像.
         tmpl (Template[T]): 検索するテンプレート画像.
         thresh (Optional[float], optional): 類似度の閾値 (0.0-1.0). Defaults to None.
         tgt (Rect, optional): img 中で検索対象とする領域. Defaults to None.
@@ -81,7 +76,7 @@ def match_max(
 
 
 def match_all(
-    img: Cv2Image,
+    img: BgrImage,
     tmpls: Collection[Template[T]],
     thresh: float,
     tgt: Optional[Rect] = None,
@@ -90,7 +85,7 @@ def match_all(
     """複数のテンプレート画像に対してテンプレートマッチングを実行し, 各テンプレート毎にマッチした領域のリストを返す.
 
     Args:
-        img (Cv2Image): 被検索対象画像.
+        img (BgrImage): 被検索対象画像.
         tmpls (Collection[Template[T]]): 検索するテンプレート画像群.
         thresh (float): 類似度の閾値 (0.0-1.0). Defaults to None.
         tgt (Optional[Rect], optional): img 中で検索対象とする領域. Defaults to None.
@@ -100,17 +95,16 @@ def match_all(
         Dict[T, List[Rect]]: {テンプレート: テンプレートに対してマッチした領域のリスト} で表される dict.
     """
     h, w = img.shape[:2]
-    if tgt is None:
-        tgt = Rect.from_xywh(0, 0, w, h)
-        cropped = img
+    if tgt:
+        cropped = img.crop(tgt)
     else:
-        cropped = cv2wrap.crop_img(img, tgt)
+        tgt = img.rect
+        cropped = img
 
     bboxes = []
     scores = []
     keys = []
     for tmpl in tmpls:
-        # TODO : move
         tmpl = tmpl.fit_resolution((w, h))
         result = _match_template(cropped, tmpl)
 
@@ -141,7 +135,7 @@ def match_all(
 
 
 def match_best(
-    img: Cv2Image,
+    img: BgrImage,
     tmpls: Collection[Template[T]],
     thresh: float,
     default: Optional[T] = None,
@@ -150,7 +144,7 @@ def match_best(
     """複数のテンプレート画像に対してテンプレートマッチングを実行し, 類似度が最大となるテンプレートとその矩形領域を返す.
 
     Args:
-        img (Cv2Image): 被検索対象画像.
+        img (BgrImage): 被検索対象画像.
         tmpls (Collection[Template[T]]): 検索するテンプレート画像群.
         thresh (float): 類似度の閾値 (0.0-1.0). Defaults to None.
         default (Optional[T], optional): マッチするものが見つからなかった場合のデフォルト値. Defaults to None.

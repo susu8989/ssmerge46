@@ -7,8 +7,7 @@ from typing import Callable, Generic, Optional, Tuple, TypeVar, Union
 
 import cv2
 
-import cv2wrap as cv2wrap
-from cv2wrap.color import Cv2Image
+from cv2wrap.image import BgrImage
 from geometry import Rect
 
 _T = TypeVar("_T")
@@ -23,19 +22,18 @@ class Template(Generic[_T]):
     """テンプレート画像データクラス.
 
     Args:
-        img (Cv2Image): テンプレート画像.
+        img (BgrImage): テンプレート画像.
         value (T): マッチした際に返す値.
         ref_res: 基準解像度 (幅, 高さ). テンプレート画像を切り抜く前の画面全体の解像度.
         path (Optional[Path]): (ファイルから読み込んだ場合の) テンプレート画像のパス. Defaults to None.
-        preprocess(Callable[[Cv2Image], Cv2Image]]): テンプレート画像に対して行う前処理. Defaults to do nothing.
+        preprocess(Callable[[BgrImage], BgrImage]]): テンプレート画像に対して行う前処理. Defaults to do nothing.
     """
 
-    img: Cv2Image
+    img: BgrImage
     value: _T
     ref_res: Tuple[int, int]
     path: Optional[Path] = None
-    preprocess: Callable[[Cv2Image], Cv2Image] = _do_nothing
-    # TODO: fix resolution
+    preprocess: Callable[[BgrImage], BgrImage] = _do_nothing
 
     def fit_resolution(self, new_res: Tuple[int, int]) -> Template[_T]:
         if self.ref_res == new_res:
@@ -51,12 +49,12 @@ class Template(Generic[_T]):
         value: _T,
         ref_res: Tuple[int, int],
         cropping: Optional[Rect] = None,
-        preprocess: Optional[Callable[[Cv2Image], Cv2Image]] = None,
+        preprocess: Optional[Callable[[BgrImage], BgrImage]] = None,
     ) -> Template[_T]:
         path = Path(file)
-        img = cv2wrap.read(str(file))
+        img = BgrImage.open(file)
         if cropping:
-            img = cv2wrap.crop_img(img, cropping)
+            img = img.crop(cropping)
 
         if preprocess:
             img = preprocess(img)
