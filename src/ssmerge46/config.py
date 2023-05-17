@@ -1,7 +1,13 @@
 from distutils.util import strtobool
 from os import environ
 
-TOKEN: str = environ["TOKEN"]
-MASANORI: bool = bool(strtobool(environ.get("MASANORI", "0")))
+# Token for discord bot
+TOKEN = environ["TOKEN"]
 
-MAX_RESOLUTION: int = 1080 * 1920
+# Max number of input files per request
+MAX_ATTACHMENTS = int(environ.get("MAX_ATTACHMENTS", 10))
+# Max number of pixels per input file
+MAX_RESOLUTION = int(environ.get("MAX_RESOLUTION", 1080 * 1920))
+
+# Private joke
+MASANORI = bool(strtobool(environ.get("MASANORI", "0")))

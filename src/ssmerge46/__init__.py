@@ -11,7 +11,7 @@ import toml
 from discord import ChannelType, Client, File, Intents, Message
 
 from cv2wrap.image import BgrImage
-from ssmerge46 import config
+from ssmerge46.config import MASANORI, MAX_ATTACHMENTS, MAX_RESOLUTION, TOKEN
 from ssmerge46.imgproc import stack_left_to_right, stack_top_to_bot
 from ssmerge46.umamerge import ScrollStitcher
 
@@ -41,19 +41,31 @@ def _get_version() -> str:
 
 version = _get_version()
 
+AVAILABLE_FILETYPES = ("png", "jpg", "jpeg", "webp")
+
 USAGE = f"""```
 # SSマージ四郎 ver.{version}
-    スキル表示画面・因子表示画面を分割して撮影した複数のスクリーンショットを1枚に結合します。
+ウマ娘のゲーム画面のスクリーンショットを1枚に結合します。
 
-## 使い方
-    - このbotが所属しているチャンネルで '/ssm' と入力し、合成したい画像を *一度に* 添付してください。
-    - このbotにDMとして直接送信することも可能で、その場合コマンド入力は不要です。
+## コマンド一覧
+/ssm    ... ウマ娘スクロール画面の自動結合
+  - スキル表示・因子表示画面の縦スクロールエリアを自動検知して縦に結合します。
+  - その他の画面には基本的に使えません。
+  - 画像の解像度は統一し、1～2割程度の重複部分（のりしろ）を作ってください。
+
+/ssmh   ... 横結合
+  - 画像を横方向に単純に結合します。
+  - 高さが異なる場合、1枚目を基準として2枚目以降は自動リサイズされます。
+
+/ssmv   ... 縦結合
+  - 画像を縦方向に単純に結合します。
+  - 幅が異なる場合、1枚目を基準として2枚目以降は自動リサイズされます。
 
 ## 注意
-    - 各画像は解像度を一致させてください。
-    - 結合位置の検出のため、各画像はスキル表示部分1～1.5個分の重複部分（のりしろ）を作ってください。
-    - 結合位置が見つからなかった場合はエラーになります。のりしろを増やしてみてください。
-    - Botのサーバーダウンでたまに応答しないことがあります。
+- 対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。
+- 一度に送信可能な画像は 最大{MAX_ATTACHMENTS}枚 です。
+- botにDMとして画像を送信することもでき、この場合 `/ssm` であればコマンド省略可能です。
+- サーバーダウンでたまに応答しないことがあります。
 ```"""
 
 
@@ -76,29 +88,33 @@ async def on_message(message: Message):
             await message.channel.send(USAGE)
             return
         if len(attachments) < 2:
-            await message.channel.send("2枚以上の画像を送信してください。対応形式は png / jpg です。")
+            await message.channel.send(
+                f"画像を2枚以上送信してください。対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。"
+            )
+            return
+        if len(attachments) > MAX_ATTACHMENTS:
+            await message.channel.send(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
             return
 
         try:
             imgs: List[BgrImage] = []
             for attachment in attachments:
                 filename = attachment.filename
-                if (
-                    filename.endswith(".png")
-                    or filename.endswith(".jpg")
-                    or filename.endswith(".jpeg")
-                    or filename.endswith(".webp")
-                ):
+                if filename.endswith(AVAILABLE_FILETYPES):
                     buf = await attachment.read()
                     arr = np.frombuffer(buf, np.uint8)
                     img = BgrImage.decode(arr)
-                    if img.px > config.MAX_RESOLUTION:
-                        scale = config.MAX_RESOLUTION / img.px
-                        img = img.scale_img(scale)
-                    imgs.append(img)
+                    if img.px > MAX_RESOLUTION:
+                        scale = MAX_RESOLUTION / img.px
+                        resized = img.scale_img(scale)
+                    else:
+                        resized = img
+                    imgs.append(resized)
                 else:
                     logger.warn(f"Invalid file type : {filename}")
-                    raise ValueError(f"非対応の画像形式です。対応形式は png / jpg です。 : {filename}")
+                    raise ValueError(
+                        f"非対応の画像形式です。対応形式は {' / '.join( AVAILABLE_FILETYPES)}  です。 : {filename}"
+                    )
 
             if content.startswith("/ssmh"):
                 merged = stack_left_to_right(imgs)
@@ -132,7 +148,7 @@ async def on_message(message: Message):
             )
         return
 
-    if config.MASANORI and random.random() < 0.01 and len(content) <= 32:
+    if MASANORI and random.random() < 0.03 and len(content) <= 32:
         if content.endswith("本命は？") or content.endswith("本命教えて"):
             msg = "フェーングロッテン"
         elif content == "まさのり":
@@ -148,14 +164,14 @@ WEIGHTS = {"(´・ω・｀) できたよお兄ちゃん！": 10, "フェーン�
 
 
 def _get_random_msg() -> Optional[str]:
-    if not config.MASANORI:
+    if not MASANORI:
         return None
     msg = random.choices(list(WEIGHTS.keys()), weights=list(WEIGHTS.values()))[0]
     return msg if msg else None
 
 
 def start():
-    client.run(config.TOKEN)
+    client.run(TOKEN)
 
 
 if __name__ == "__main__":
