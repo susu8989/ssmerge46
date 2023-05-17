@@ -181,9 +181,11 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
         new[y:y2, x:x2] = img[0:h, 0:w]
         return new
 
-    def resize_img(self, size: VectorLike) -> Self:
-        size = Vector2d(*size).to_int_tuple()
-        return self.__class__(cv2.resize(self, size))
+    def resize_img(self, new_wh: VectorLike) -> Self:
+        new_wh = Vector2d(*new_wh).to_int_tuple()
+        if self.wh == new_wh:
+            return self.copy()
+        return self.__class__(cv2.resize(self, new_wh))
 
     def scale_img(self, scale: float | VectorLike) -> Self:
         size = self.wh.scale(scale).to_int_tuple()
