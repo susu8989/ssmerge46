@@ -1,3 +1,4 @@
+from math import ceil
 from typing import List, Optional
 
 import numpy as np
@@ -6,7 +7,7 @@ from cv2wrap import BgrImage
 from geometry import Rect, Vector2d
 
 
-def stack_left_to_right(imgs: List[BgrImage]) -> BgrImage:
+def combine_left_to_right(imgs: List[BgrImage]) -> BgrImage:
     base = imgs[0]
     to_stack = [base]
     for img in imgs[1:]:
@@ -16,7 +17,7 @@ def stack_left_to_right(imgs: List[BgrImage]) -> BgrImage:
     return np.hstack(to_stack).view(BgrImage)
 
 
-def stack_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
+def combine_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
     base = imgs[0]
     to_stack = [base]
     for img in imgs[1:]:
@@ -24,6 +25,29 @@ def stack_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
         new_h = int(img.h * base.w / img.w)
         to_stack.append(img.resize_img((new_w, new_h)))
     return np.vstack(to_stack).view(BgrImage)
+
+
+def combine_squarely(imgs: List[BgrImage]) -> BgrImage:
+    base = imgs[0]
+    num_imgs = len(imgs)
+    num_cols = min(
+        range(1, num_imgs + 1),
+        key=lambda x: (base.w * x) ** 2 + (base.h * ceil(num_imgs / x)) ** 2,
+    )
+    num_rows = ceil(num_imgs / num_cols)
+    result = np.zeros((base.h * num_rows, base.w * num_cols, 3), dtype=np.uint8)
+    for i, img in enumerate(imgs):
+        new_wh = img.rect.fit_inner(base.rect).size
+        resized_img = img.resize_img(new_wh)
+
+        row = i // num_cols
+        col = i % num_cols
+        y1 = row * base.h
+        y2 = y1 + resized_img.h
+        x1 = col * base.w
+        x2 = x1 + resized_img.w
+        result[y1:y2, x1:x2] = resized_img
+    return result.view(BgrImage)
 
 
 def unmargin(img: BgrImage, scan_px: Optional[int] = None) -> BgrImage:

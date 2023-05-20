@@ -157,7 +157,7 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
         Returns:
             Self: 画像のスライス.
         """
-        cropping_rect = self.rect.fit_inner(aspect_ratio)
+        cropping_rect = self.rect.cut_with_fixed_aspect_ratio(aspect_ratio)
         return self.crop(cropping_rect)
 
     def put_img(self, img: Self, pos: VectorLike) -> Self:

@@ -107,7 +107,9 @@ class ScrollStitcher:
             raise ValueError("入力画像の解像度が一致しません。")
 
         main_aspect_ratio = self.test_wh.x / self.test_wh.y
-        pre_cropping_rect = imgproc.unmargin_rect(base, 30).fit_inner(main_aspect_ratio)
+        pre_cropping_rect = imgproc.unmargin_rect(base, 30).cut_with_fixed_aspect_ratio(
+            main_aspect_ratio
+        )
         unmargined_rect = imgproc.unmargin_rect(base.crop(pre_cropping_rect), 30).move(
             *pre_cropping_rect.topleft
         )

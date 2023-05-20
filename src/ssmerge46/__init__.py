@@ -13,7 +13,7 @@ from discord import ChannelType, Client, File, Intents, Message
 import cv2wrap
 from cv2wrap.image import BgrImage
 from ssmerge46.config import MASANORI, MAX_ATTACHMENTS, MAX_RESOLUTION, TOKEN
-from ssmerge46.imgproc import stack_left_to_right, stack_top_to_bot
+from ssmerge46.imgproc import combine_left_to_right, combine_squarely, combine_top_to_bot
 from ssmerge46.umamerge import ScrollStitcher
 
 logger = logging.getLogger("discord")
@@ -61,6 +61,10 @@ USAGE = f"""```
 /ssmv   ... タテ結合
   - 画像をタテ方向に (= Vertically) 単純に結合します。
   - 幅が異なる場合、1枚目を基準として2枚目以降は自動リサイズされます。
+
+/ssmz   ... タテヨコ結合
+  - 画像を正方形に近くなるように並べて結合します。
+  - 異なる場合、1枚目を基準として2枚目以降は自動リサイズされ、アスペクト比が異なる場合は黒い隙間ができます。
 
 ## 注意
 - 対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。
@@ -119,10 +123,13 @@ async def on_message(message: Message):
 
             if content.startswith("/ssmh"):
                 # Simple vstack
-                merged = stack_left_to_right(imgs)
+                merged = combine_left_to_right(imgs)
             elif content.startswith("/ssmv"):
                 # Simple hstack
-                merged = stack_top_to_bot(imgs)
+                merged = combine_top_to_bot(imgs)
+            elif content.startswith("/ssmz"):
+                # Simple hstack
+                merged = combine_squarely(imgs)
             elif content.startswith("/ssms"):
                 # OpenCV Sticher
                 merged = cv2wrap.stitch(imgs)

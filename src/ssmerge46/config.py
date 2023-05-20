@@ -5,7 +5,7 @@ from os import environ
 TOKEN = environ["TOKEN"]
 
 # Max number of input files per request
-MAX_ATTACHMENTS = int(environ.get("MAX_ATTACHMENTS", 10))
+MAX_ATTACHMENTS = int(environ.get("MAX_ATTACHMENTS", 12))
 # Max number of pixels per input file
 MAX_RESOLUTION = int(environ.get("MAX_RESOLUTION", 1080 * 1920))
 

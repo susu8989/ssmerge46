@@ -100,10 +100,10 @@ class Rect(tuple[float, float, float, float]):
         y = center_y - h / 2
         return self.from_xywh(x, y, w, h)
 
-    def intersects_with(self, other: Rect) -> bool:
+    def intersects_with(self, other: Self) -> bool:
         return self.intersection(other) == self.empty()
 
-    def intersection(self, other: Rect) -> Self:
+    def intersection(self, other: Self) -> Self:
         left = max(self.x, other.x)
         top = max(self.y, other.y)
         right = min(self.x2, other.x2)
@@ -112,20 +112,23 @@ class Rect(tuple[float, float, float, float]):
             return self.empty()
         return self.from_xyxy(left, top, right, bot)
 
-    def union(self, other: Rect) -> Self:
+    def union(self, other: Self) -> Self:
         left = min(self.x, other.x)
         top = min(self.y, other.y)
         right = max(self.x2, other.x2)
         bot = max(self.y2, other.y2)
         return self.from_xyxy(left, top, right, bot)
 
-    def iou(self, other: Rect) -> float:
+    def iou(self, other: Self) -> float:
         intersection_area = self.intersection(other).area
         if intersection_area == 0.0:
             return 0.0
         return intersection_area / (self.area + other.area - intersection_area)
 
-    def fit_inner(self, aspect_ratio: float) -> Self:
+    def fit_inner(self, other: Self) -> Self:
+        return other.cut_with_fixed_aspect_ratio(self.aspect_ratio)
+
+    def cut_with_fixed_aspect_ratio(self, aspect_ratio: float) -> Self:
         center_x, center_y = self.center
         if self.aspect_ratio > aspect_ratio:
             # self is wider
@@ -175,10 +178,10 @@ class Rect(tuple[float, float, float, float]):
     def __str__(self) -> str:
         return f"{type(self).__name__}({self.x}, {self.y}, {self.w}, {self.h})"
 
-    def __and__(self, other: Rect) -> Self:
+    def __and__(self, other: Self) -> Self:
         return self.intersection(other)
 
-    def __or__(self, other: Rect) -> Self:
+    def __or__(self, other: Self) -> Self:
         return self.union(other)
 
     @classmethod
@@ -205,7 +208,7 @@ class Rect(tuple[float, float, float, float]):
     def from_wh(cls, w: float, h: float) -> Self:
         return cls(0, 0, w, h)
 
-    def ratio_to_px(self, px_rect: Rect) -> Self:
+    def ratio_to_px(self, px_rect: Self) -> Self:
         """正規化された矩形領域 (0-1) から, 指定した領域上のピクセル座標における矩形領域を求める.
 
         結果が画像サイズからはみ出す場合, その部分は切り取られる.
@@ -218,7 +221,7 @@ class Rect(tuple[float, float, float, float]):
         """
         return self.scale(px_rect.size).intersection(px_rect).to_int_rect()
 
-    def px_to_ratio(self, ratio_rect: Rect) -> Self:
+    def px_to_ratio(self, ratio_rect: Self) -> Self:
         """ピクセル座標における矩形領域 (0-W, 0-H) から, 指定した領域上の正規化された矩形領域を求める.
 
         結果が画像サイズからはみ出す場合, その部分は切り取られる.
