@@ -11,6 +11,7 @@ from geometry.vector import Vector2d
 from recogn.matching import match_max
 from recogn.template import Template
 from ssmerge46 import imgproc
+from ssmerge46.exception import CroppingError, DetectionError
 
 UMA_SCROLL_RATIO = Rect.from_xyxy(0.02, 0.465, 0.96, 0.865)
 UMA_SCROLL_BAR_RATIO = Rect.from_xyxy(0.94, 0.465, 0.98, 0.865)
@@ -81,7 +82,7 @@ class ScrollStitcher:
             )
             if not (matched_rect and score >= self.match_thresh):
                 print("Low matching score :", score)
-                raise Exception("類似部分の検知に失敗しました。")
+                raise DetectionError("類似部分の検知に失敗しました。")
             matched_ys.append(matched_rect.y)
 
         cropped_imgs = [input.cropped for input in inspection.inputs]
@@ -103,7 +104,7 @@ class ScrollStitcher:
     def _pre_inspect(self, imgs: Sequence[BgrImage]) -> InspectionResult:
         base = imgs[0]
         if any(base.wh != img.wh for img in imgs):
-            raise ValueError("画像の解像度が一致しません。")
+            raise ValueError("入力画像の解像度が一致しません。")
 
         main_aspect_ratio = self.test_wh.x / self.test_wh.y
         pre_cropping_rect = imgproc.unmargin_rect(base, 30).fit_inner(main_aspect_ratio)
@@ -117,7 +118,7 @@ class ScrollStitcher:
             cropped = img.crop(unmargined_rect)
             resized = cropped.resize_img(self.test_wh)
             if resized.wh != self.test_wh:
-                raise Exception("余白切り抜きに失敗しました。")
+                raise CroppingError("余白切り抜きに失敗しました。")
             cropped_imgs.append(cropped)
             resized_imgs.append(resized)
 
@@ -177,11 +178,11 @@ class ScrollStitcher:
 
         contours, _ = cv2.findContours(m2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
-            raise Exception("スクロールバーが検知できませんでした。")
+            raise DetectionError("スクロールバーが検知できませんでした。")
         contour = max(contours, key=cv2.contourArea)
         rect = Rect.from_xywh(*cv2.boundingRect(contour)).expand(*expantion)
         if rect.aspect_ratio > 0.2:
-            raise Exception("スクロールバーの検知結果が異常です。")
+            raise DetectionError("スクロールバーの検知結果が異常です。")
         return rect.move(tgt.x, tgt.y)  # px in test_size
 
     def _detect_scroll_bar_pos(
@@ -208,5 +209,5 @@ class ScrollStitcher:
         # バーの暗色部分が存在するY座標のリスト
         black_ys = np.where(horizontal_summed < gray_scaled.shape[1] * 255)
         if len(black_ys) == 0 or black_ys[0].size == 0:
-            raise Exception("スクロールバーの検知に失敗しました。")
+            raise DetectionError("スクロールバーが検知結果が異常です。")
         return int(bar_area.h) + int(np.min(black_ys))

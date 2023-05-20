@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Collection
 
 import cv2
 
@@ -76,3 +76,11 @@ def draw_text_with_stroke(
         lineType=line_type,
     )
     return img
+
+
+def stitch(imgs: Collection[BgrImage], mode: int = cv2.STITCHER_SCANS) -> BgrImage:
+    stitcher = cv2.Stitcher_create(mode)
+    status, stitched = stitcher.stitch(imgs)
+    if status != cv2.Stitcher_OK:
+        raise Exception("スキャン合成に失敗しました。")
+    return stitched.view(BgrImage)

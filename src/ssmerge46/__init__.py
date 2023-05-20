@@ -10,6 +10,7 @@ import numpy as np
 import toml
 from discord import ChannelType, Client, File, Intents, Message
 
+import cv2wrap
 from cv2wrap.image import BgrImage
 from ssmerge46.config import MASANORI, MAX_ATTACHMENTS, MAX_RESOLUTION, TOKEN
 from ssmerge46.imgproc import stack_left_to_right, stack_top_to_bot
@@ -53,12 +54,12 @@ USAGE = f"""```
   - その他の画面には基本的に使えません。
   - 画像の解像度は統一し、1～2割程度の重複部分（のりしろ）を作ってください。
 
-/ssmh   ... 横結合
-  - 画像を横方向に単純に結合します。
+/ssmh   ... ヨコ結合
+  - 画像をヨコ方向に (= Horizontally) 単純に結合します。
   - 高さが異なる場合、1枚目を基準として2枚目以降は自動リサイズされます。
 
-/ssmv   ... 縦結合
-  - 画像を縦方向に単純に結合します。
+/ssmv   ... タテ結合
+  - 画像をタテ方向に (= Vertically) 単純に結合します。
   - 幅が異なる場合、1枚目を基準として2枚目以降は自動リサイズされます。
 
 ## 注意
@@ -96,8 +97,8 @@ async def on_message(message: Message):
             await message.channel.send(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
             return
 
+        imgs: List[BgrImage] = []
         try:
-            imgs: List[BgrImage] = []
             for attachment in attachments:
                 filename = attachment.filename
                 if filename.endswith(AVAILABLE_FILETYPES):
@@ -117,11 +118,16 @@ async def on_message(message: Message):
                     )
 
             if content.startswith("/ssmh"):
+                # Simple vstack
                 merged = stack_left_to_right(imgs)
             elif content.startswith("/ssmv"):
+                # Simple hstack
                 merged = stack_top_to_bot(imgs)
+            elif content.startswith("/ssms"):
+                # OpenCV Sticher
+                merged = cv2wrap.stitch(imgs)
             else:
-                # merge
+                # Scroll area Stitcher
                 merged = stitcher.stitch(imgs)
             logger.info("%s", merged.wh)
             success, encoded = cv2.imencode(".png", merged)
