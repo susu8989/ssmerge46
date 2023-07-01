@@ -22,14 +22,14 @@ class InputData:
     org: BgrImage
     cropped: BgrImage
     resized: BgrImage
-    bar_pos: int  # in test
+    bar_pos: int  # in resized px
 
 
 @dataclass(frozen=True)
 class InspectionResult:
     inputs: List[InputData]
-    bar_area: Rect  # in test
-    scroll_area: Rect  # in test
+    bar_area: Rect  # in resized px
+    scroll_area: Rect  # in resized px
 
     @property
     def header_area(self) -> Rect:
@@ -83,20 +83,18 @@ class ScrollStitcher:
             if not (matched_rect and score >= self.match_thresh):
                 print("Low matching score :", score)
                 raise DetectionError("類似部分の検知に失敗しました。")
-            matched_ys.append(matched_rect.y)
+            matched_ys.append(int(matched_rect.y))
+        matched_ys.append(-1)  # 最後の画像分
 
         cropped_imgs = [input.cropped for input in inspection.inputs]
         header_y = int(inspection.header_area.y2 * scale)
         header = cropped_imgs[0][:header_y]
         to_stack: List[BgrImage] = [header]  # 結合画像リスト
-        for i, y in enumerate(matched_ys):
+        for i, matched_y in enumerate(matched_ys):
             prev = cropped_imgs[i]
-            crop_y = int(scroll_area.y * scale)
-            crop_y2 = int(y * scale)
-            to_stack.append(prev[crop_y:crop_y2])
-        crop_y = int(scroll_area.y * scale)
-        crop_y2 = int(scroll_area.y2 * scale)
-        to_stack.append(cropped_imgs[-1][crop_y:crop_y2])
+            y = int((scroll_area.y + (0 if i == 0 else query_h / 2)) * scale)
+            y2 = int(((matched_y + (query_h / 2)) if matched_y > 0 else scroll_area.y2) * scale)
+            to_stack.append(prev[y:y2])
 
         stacked = np.vstack(to_stack).view(BgrImage)
         return stacked

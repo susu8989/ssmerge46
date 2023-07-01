@@ -166,6 +166,8 @@ async def on_message(message: Message):
             msg = "フェーングロッテン"
         elif content == "まさのり":
             msg = "こ～んに～ちは～！！！"
+        elif content == "フェーングロッテン":
+            msg = "本命は？"
         else:
             msg = ""
 
