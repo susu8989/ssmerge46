@@ -12,7 +12,14 @@ from discord import ChannelType, Client, File, Intents, Message
 
 import cv2wrap
 from cv2wrap.image import BgrImage
-from ssmerge46.config import MASANORI, MAX_ATTACHMENTS, MAX_RESOLUTION, TOKEN
+from ssmerge46.config import (
+    MASANORI,
+    MAX_ATTACHMENTS,
+    MAX_RESOLUTION,
+    MAX_RESOLUTION_2,
+    MAX_RESOLUTION_3,
+    TOKEN,
+)
 from ssmerge46.imgproc import combine_left_to_right, combine_squarely, combine_top_to_bot
 from ssmerge46.umamerge import ScrollStitcher
 
@@ -89,28 +96,36 @@ async def on_message(message: Message):
 
     if message.channel.type == ChannelType.private or content.startswith("/ssm"):
         attachments = message.attachments
-        if len(attachments) == 0:
+        attachments_len = len(attachments)
+        if attachments_len == 0:
             await message.channel.send(USAGE)
             return
-        if len(attachments) < 2:
+        if attachments_len < 2:
             await message.channel.send(
                 f"画像を2枚以上送信してください。対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。"
             )
             return
-        if len(attachments) > MAX_ATTACHMENTS:
+        if attachments_len > MAX_ATTACHMENTS:
             await message.channel.send(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
             return
 
         imgs: List[BgrImage] = []
         try:
+            if attachments_len <= 4:
+                resolution_limit = MAX_RESOLUTION
+            elif attachments_len <= 9:
+                resolution_limit = MAX_RESOLUTION_2
+            else:
+                resolution_limit = MAX_RESOLUTION_3
+
             for attachment in attachments:
                 filename = attachment.filename
                 if filename.endswith(AVAILABLE_FILETYPES):
                     buf = await attachment.read()
                     arr = np.frombuffer(buf, np.uint8)
                     img = BgrImage.decode(arr)
-                    if img.px > MAX_RESOLUTION:
-                        scale = MAX_RESOLUTION / img.px
+                    if img.px > resolution_limit:
+                        scale = resolution_limit / img.px
                         resized = img.scale_img(scale)
                         del img
                     else:
