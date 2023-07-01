@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Sequence
+from typing import Iterable, List, Optional, Sequence
 
 import cv2
 import numpy as np
@@ -11,7 +11,13 @@ from geometry.vector import Vector2d
 from recogn.matching import match_max
 from recogn.template import Template
 from ssmerge46 import imgproc
-from ssmerge46.exception import CroppingError, DetectionError
+from ssmerge46.exception import (
+    CroppingError,
+    InvalidInputImageError,
+    InvalidSettingError,
+    OverlapDetectionError,
+    ScrollbarDetectionError,
+)
 
 UMA_SCROLL_RATIO = Rect.from_xyxy(0.02, 0.465, 0.96, 0.865)
 UMA_SCROLL_BAR_RATIO = Rect.from_xyxy(0.94, 0.465, 0.98, 0.865)
@@ -44,15 +50,30 @@ class InspectionResult:
 
 class ScrollStitcher:
     test_wh = Vector2d(360, 640)
-    overlap_ratio = 0.2
-    match_thresh = 0.5
 
-    def stitch(self, imgs: Sequence[BgrImage]):
+    def stitch_retryable(
+        self, imgs, overlap_ratios: Iterable[float], match_threshs: Iterable[float]
+    ) -> BgrImage:
+        for ratio, thresh in zip(overlap_ratios, match_threshs):
+            try:
+                return self.stitch(imgs, overlap_ratio=ratio, match_thresh=thresh)
+            except OverlapDetectionError as e:
+                print(f"{e}, {ratio=}, {thresh=}")
+        raise OverlapDetectionError("類似部分の検出に失敗しました。")
+
+    def stitch(
+        self, imgs: Sequence[BgrImage], overlap_ratio: float = 0.2, match_thresh: float = 0.5
+    ) -> BgrImage:
         num = len(imgs)
         if num < 1:
-            raise ValueError("'imgs' が空です。")
+            raise InvalidInputImageError("画像が空です。")
         if len(imgs) == 1:
             return imgs[0]
+
+        if not (0.0 <= overlap_ratio < 1.0):
+            raise InvalidSettingError(f"重複検索範囲比率が無効です。 : {overlap_ratio=}")
+        if not (0.0 <= match_thresh < 1.0):
+            raise InvalidSettingError(f"重複スコア閾値が無効です。 : {match_thresh=}")
 
         # 方針
 
@@ -63,10 +84,10 @@ class ScrollStitcher:
         test_imgs = [input.resized for input in inspection.inputs]
         scale = inspection.inputs[0].cropped.h / inspection.inputs[0].resized.h
         scroll_area = inspection.scroll_area
-        query_h = int(scroll_area.h * self.overlap_ratio)
+        query_h = int(scroll_area.h * overlap_ratio)
         query_rect = Rect.from_xywh(scroll_area.x, scroll_area.y, scroll_area.w, query_h)
 
-        # 結合位置を検知する
+        # 結合位置を検出する
         base = test_imgs[0]
         matched_ys: List[float] = []
         for prev, cur in zip(test_imgs, test_imgs[1:]):
@@ -80,9 +101,9 @@ class ScrollStitcher:
                     scroll_area.x, scroll_area.y, scroll_area.x2, scroll_area.y2 + query_h
                 ),
             )
-            if not (matched_rect and score >= self.match_thresh):
-                print("Low matching score :", score)
-                raise DetectionError("類似部分の検知に失敗しました。")
+            if not (matched_rect and score >= match_thresh):
+                raise OverlapDetectionError(f"類似部分の検出に失敗しました。 : {score=}")
+            print(f"重複部分検出成功。 : {score=}")
             matched_ys.append(int(matched_rect.y))
         matched_ys.append(-1)  # 最後の画像分
 
@@ -101,8 +122,12 @@ class ScrollStitcher:
 
     def _pre_inspect(self, imgs: Sequence[BgrImage]) -> InspectionResult:
         base = imgs[0]
-        if any(base.wh != img.wh for img in imgs):
-            raise ValueError("入力画像の解像度が一致しません。")
+        for i, img in enumerate(imgs):
+            img_num = i + 1
+            if base.wh != img.wh:
+                raise InvalidInputImageError(
+                    f"入力画像の解像度が一致しません。 : 1枚目 = {base.wh}, {img_num}枚目 = {img.wh}"
+                )
 
         main_aspect_ratio = self.test_wh.x / self.test_wh.y
         pre_cropping_rect = imgproc.unmargin_rect(base, 30).cut_with_fixed_aspect_ratio(
@@ -150,7 +175,7 @@ class ScrollStitcher:
         bgr_tolerance: int = 8,
         expantion=(2, 6, 2, 6),
     ) -> Rect:
-        """スクロールバー領域を検知する.
+        """スクロールバー領域を検出する.
 
         Args:
             img (BgrImage): 被検索対象画像.
@@ -178,17 +203,17 @@ class ScrollStitcher:
 
         contours, _ = cv2.findContours(m2, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
-            raise DetectionError("スクロールバーが検知できませんでした。")
+            raise ScrollbarDetectionError("スクロールバーが検出できませんでした。")
         contour = max(contours, key=cv2.contourArea)
         rect = Rect.from_xywh(*cv2.boundingRect(contour)).expand(*expantion)
         if rect.aspect_ratio > 0.2:
-            raise DetectionError("スクロールバーの検知結果が異常です。")
+            raise ScrollbarDetectionError("スクロールバーの検出結果が異常です。")
         return rect.move(tgt.x, tgt.y)  # px in test_size
 
     def _detect_scroll_bar_pos(
         self, img: BgrImage, bar_area: Rect, binary_thresh: int = 144
     ) -> int:
-        """スクロールバーのY座標を検知する.
+        """スクロールバーのY座標を検出する.
 
         Args:
             img (BgrImage): 被検索対象画像.
@@ -196,7 +221,7 @@ class ScrollStitcher:
             binary_thresh (int, optional): 2値化時の閾値. デフォルトは 144.
 
         Raises:
-            Exception: スクロールバーの検知に失敗した場合.
+            Exception: スクロールバーの検出に失敗した場合.
 
         Returns:
             int: スクロールバーの暗色部分の上端Y座標. (原点はimgと共通)
@@ -209,5 +234,5 @@ class ScrollStitcher:
         # バーの暗色部分が存在するY座標のリスト
         black_ys = np.where(horizontal_summed < gray_scaled.shape[1] * 255)
         if len(black_ys) == 0 or black_ys[0].size == 0:
-            raise DetectionError("スクロールバーが検知結果が異常です。")
+            raise ScrollbarDetectionError("スクロールバーが検出結果が異常です。")
         return int(bar_area.h) + int(np.min(black_ys))

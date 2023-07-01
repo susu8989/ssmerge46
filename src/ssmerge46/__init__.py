@@ -50,7 +50,7 @@ USAGE = f"""```
 
 ## コマンド一覧
 /ssm    ... ウマ娘スクロール画面の自動結合
-  - スキル表示・因子表示画面の縦スクロールエリアを自動検知して縦に結合します。
+  - スキル表示・因子表示画面の縦スクロールエリアを自動検出して縦に結合します。
   - その他の画面には基本的に使えません。
   - 画像の解像度は統一し、1～2割程度の重複部分（のりしろ）を作ってください。
 
@@ -112,6 +112,7 @@ async def on_message(message: Message):
                     if img.px > MAX_RESOLUTION:
                         scale = MAX_RESOLUTION / img.px
                         resized = img.scale_img(scale)
+                        del img
                     else:
                         resized = img
                     imgs.append(resized)
@@ -135,8 +136,11 @@ async def on_message(message: Message):
                 merged = cv2wrap.stitch(imgs)
             else:
                 # Scroll area Stitcher
-                merged = stitcher.stitch(imgs)
-            logger.info("%s", merged.wh)
+                merged = stitcher.stitch_retryable(
+                    imgs, overlap_ratios=(0.2, 0.15, 0.1), match_threshs=(0.75, 0.8, 0.9)
+                )
+
+            logger.info("Merged. : %s", merged.wh)
             success, encoded = cv2.imencode(".png", merged)
             if not success:
                 await message.channel.send("出力画像のエンコードに失敗しました。")
@@ -152,7 +156,9 @@ async def on_message(message: Message):
         finally:
             author = message.author
             logger.info(
-                "[%s %s %s] %d %s",
+                "[%s %s] [%s %s %s] %d %s",
+                message.guild,
+                message.channel,
                 author.id,
                 author.name,
                 author.display_name,
