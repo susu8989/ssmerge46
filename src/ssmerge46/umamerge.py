@@ -12,7 +12,7 @@ from recogn.matching import match_max
 from recogn.template import Template
 from ssmerge46 import imgproc
 from ssmerge46.exception import (
-    CroppingError,
+    ImageProcessingError,
     InvalidInputImageError,
     InvalidSettingError,
     OverlapDetectionError,
@@ -24,7 +24,7 @@ UMA_SCROLL_BAR_RATIO = Rect.from_xyxy(0.94, 0.465, 0.98, 0.865)
 
 
 @dataclass(frozen=True)
-class InputData:
+class _InputData:
     org: BgrImage
     cropped: BgrImage
     resized: BgrImage
@@ -32,8 +32,8 @@ class InputData:
 
 
 @dataclass(frozen=True)
-class InspectionResult:
-    inputs: List[InputData]
+class _PreProcessedData:
+    inputs: List[_InputData]
     bar_area: Rect  # in resized px
     scroll_area: Rect  # in resized px
 
@@ -49,14 +49,47 @@ class InspectionResult:
 
 
 class ScrollStitcher:
+    """ウマ娘スクロール画面の画像結合器.
+
+    - スキル表示・因子表示画面の縦スクロールエリアを自動検出して縦に結合します.
+    - その他の画面には基本的に使えません.
+    - 画像の解像度は統一し、1～2割程度の重複部分（のりしろ）を作ってください.
+    """
+
     test_wh = Vector2d(360, 640)
 
     def stitch_retryable(
-        self, imgs, overlap_ratios: Iterable[float], match_threshs: Iterable[float]
+        self,
+        imgs: Sequence[BgrImage],
+        overlap_ratios: Iterable[float] = [0.2],
+        match_threshs: Iterable[float] = [0.5],
     ) -> BgrImage:
+        """画像を結合する. 結合に失敗した場合はパラメータを順に変更しながらリトライする.
+
+        Args:
+            imgs (Sequence[BgrImage]): 入力とする画像の一覧.
+            overlap_ratio (Iterable[float], optional): 結合位置検出に使うのりしろの標準比率 (0-1). Defaults to [0.2].
+                スクロールエリアの高さにこの数値をかけた高さをのりしろ領域とみなし, 1つ前の画像との共通部分を探します.
+            match_thresh (Iterable[float], optional): テンプレートマッチングを行う際の閾値 (0-1). Defaults to [0.5].
+
+        Raises:
+            InvalidInputImageError: 入力画像が異常な場合.
+            InvalidSettingError: 結合処理用のパラメータの値が異常な場合.
+            ImageProcessingError: 画像の余白落とし処理に失敗した場合.
+            ScrollbarDetectionError: スクロールバーの検知に失敗した場合.
+            OverlapDetectionError: 全てのパラメータで重複部分の検知に失敗した場合.
+
+        Returns:
+            BgrImage: 結合した画像.
+        """
+        if len(imgs) < 1:
+            raise InvalidInputImageError("画像が空です。")
+        if len(imgs) == 1:
+            return imgs[0]
+        preprocessed = self._pre_process(imgs)
         for ratio, thresh in zip(overlap_ratios, match_threshs):
             try:
-                return self.stitch(imgs, overlap_ratio=ratio, match_thresh=thresh)
+                return self._process(preprocessed, ratio, thresh)
             except OverlapDetectionError as e:
                 print(f"{e}, {ratio=}, {thresh=}")
         raise OverlapDetectionError("類似部分の検出に失敗しました。")
@@ -64,26 +97,89 @@ class ScrollStitcher:
     def stitch(
         self, imgs: Sequence[BgrImage], overlap_ratio: float = 0.2, match_thresh: float = 0.5
     ) -> BgrImage:
-        num = len(imgs)
-        if num < 1:
+        """画像を結合する.
+
+        Args:
+            imgs (Sequence[BgrImage]): 入力とする画像の一覧.
+            overlap_ratio (float, optional): 結合位置検出に使うのりしろの標準比率 (0-1). Defaults to 0.2.
+                スクロールエリアの高さにこの数値をかけた高さをのりしろ領域とみなし, 1つ前の画像との共通部分を探します.
+            match_thresh (float, optional): テンプレートマッチングを行う際の閾値 (0-1). Defaults to 0.5.
+
+        Raises:
+            InvalidInputImageError: 入力画像が異常な場合.
+            InvalidSettingError: 結合処理用のパラメータの値が異常な場合.
+            ImageProcessingError: 画像の余白落とし処理に失敗した場合.
+            ScrollbarDetectionError: スクロールバーの検知に失敗した場合.
+            OverlapDetectionError: 重複部分の検知に失敗した場合.
+
+        Returns:
+            BgrImage: 結合した画像.
+        """
+        if len(imgs) < 1:
             raise InvalidInputImageError("画像が空です。")
         if len(imgs) == 1:
             return imgs[0]
+        pre_processed = self._pre_process(imgs)
+        return self._process(pre_processed, overlap_ratio, match_thresh)
 
+    def _pre_process(self, imgs: Sequence[BgrImage]) -> _PreProcessedData:
+        base = imgs[0]
+        for i, img in enumerate(imgs):
+            img_num = i + 1
+            if base.wh != img.wh:
+                raise InvalidInputImageError(
+                    f"入力画像の解像度が一致しません。 : 1枚目 = {base.wh}, {img_num}枚目 = {img.wh}"
+                )
+
+        main_aspect_ratio = self.test_wh.x / self.test_wh.y
+        pre_cropping_rect = imgproc.unmargin_rect(base, 30).cut_with_fixed_aspect_ratio(
+            main_aspect_ratio
+        )
+        unmargined_rect = imgproc.unmargin_rect(base.crop(pre_cropping_rect), 30).move(
+            *pre_cropping_rect.topleft
+        )
+
+        cropped_imgs: List[BgrImage] = []
+        resized_imgs: List[BgrImage] = []
+        for img in imgs:
+            cropped = img.crop(unmargined_rect)
+            resized = cropped.resize_img(self.test_wh)
+            if resized.wh != self.test_wh:
+                raise ImageProcessingError("余白切り抜きに失敗しました。")
+            cropped_imgs.append(cropped)
+            resized_imgs.append(resized)
+
+        test_base = resized_imgs[0]
+        bar_area = self._detect_scroll_bar_area(
+            test_base, tgt=test_base.rect.crop_by_ratio(x1=0.5, x2=1.0)  # only right side
+        )
+        scroll_area = Rect.from_xyxy(16, bar_area.y, bar_area.x, bar_area.y2)
+        sorted_inputs = sorted(
+            [
+                _InputData(
+                    imgs[i],
+                    cropped_imgs[i],
+                    resized_imgs[i],
+                    self._detect_scroll_bar_pos(resized_imgs[i], bar_area),
+                )
+                for i in range(len(imgs))
+            ],
+            key=lambda x: x.bar_pos,
+        )
+        return _PreProcessedData(sorted_inputs, bar_area, scroll_area)
+
+    def _process(
+        self, preprocessed: _PreProcessedData, overlap_ratio: float, match_thresh: float
+    ) -> BgrImage:
         if not (0.0 <= overlap_ratio < 1.0):
             raise InvalidSettingError(f"重複検索範囲比率が無効です。 : {overlap_ratio=}")
         if not (0.0 <= match_thresh < 1.0):
             raise InvalidSettingError(f"重複スコア閾値が無効です。 : {match_thresh=}")
 
-        # 方針
-
-        # 接続位置を比率で確定
-        # 出力解像度で出力
-
-        inspection = self._pre_inspect(imgs)
-        test_imgs = [input.resized for input in inspection.inputs]
-        scale = inspection.inputs[0].cropped.h / inspection.inputs[0].resized.h
-        scroll_area = inspection.scroll_area
+        # 方針: リサイズした固定解像度上で結合位置を確定してから元の画像解像度で結合して出力
+        test_imgs = [input.resized for input in preprocessed.inputs]
+        scale = preprocessed.inputs[0].cropped.h / preprocessed.inputs[0].resized.h
+        scroll_area = preprocessed.scroll_area
         query_h = int(scroll_area.h * overlap_ratio)
         query_rect = Rect.from_xywh(scroll_area.x, scroll_area.y, scroll_area.w, query_h)
 
@@ -107,8 +203,8 @@ class ScrollStitcher:
             matched_ys.append(int(matched_rect.y))
         matched_ys.append(-1)  # 最後の画像分
 
-        cropped_imgs = [input.cropped for input in inspection.inputs]
-        header_y = int(inspection.header_area.y2 * scale)
+        cropped_imgs = [input.cropped for input in preprocessed.inputs]
+        header_y = int(preprocessed.header_area.y2 * scale)
         header = cropped_imgs[0][:header_y]
         to_stack: List[BgrImage] = [header]  # 結合画像リスト
         for i, matched_y in enumerate(matched_ys):
@@ -119,52 +215,6 @@ class ScrollStitcher:
 
         stacked = np.vstack(to_stack).view(BgrImage)
         return stacked
-
-    def _pre_inspect(self, imgs: Sequence[BgrImage]) -> InspectionResult:
-        base = imgs[0]
-        for i, img in enumerate(imgs):
-            img_num = i + 1
-            if base.wh != img.wh:
-                raise InvalidInputImageError(
-                    f"入力画像の解像度が一致しません。 : 1枚目 = {base.wh}, {img_num}枚目 = {img.wh}"
-                )
-
-        main_aspect_ratio = self.test_wh.x / self.test_wh.y
-        pre_cropping_rect = imgproc.unmargin_rect(base, 30).cut_with_fixed_aspect_ratio(
-            main_aspect_ratio
-        )
-        unmargined_rect = imgproc.unmargin_rect(base.crop(pre_cropping_rect), 30).move(
-            *pre_cropping_rect.topleft
-        )
-
-        cropped_imgs: List[BgrImage] = []
-        resized_imgs: List[BgrImage] = []
-        for img in imgs:
-            cropped = img.crop(unmargined_rect)
-            resized = cropped.resize_img(self.test_wh)
-            if resized.wh != self.test_wh:
-                raise CroppingError("余白切り抜きに失敗しました。")
-            cropped_imgs.append(cropped)
-            resized_imgs.append(resized)
-
-        test_base = resized_imgs[0]
-        bar_area = self._detect_scroll_bar_area(
-            test_base, tgt=test_base.rect.crop_by_ratio(x1=0.5, x2=1.0)  # only right side
-        )
-        scroll_area = Rect.from_xyxy(16, bar_area.y, bar_area.x, bar_area.y2)
-        sorted_inputs = sorted(
-            [
-                InputData(
-                    imgs[i],
-                    cropped_imgs[i],
-                    resized_imgs[i],
-                    self._detect_scroll_bar_pos(resized_imgs[i], bar_area),
-                )
-                for i in range(len(imgs))
-            ],
-            key=lambda x: x.bar_pos,
-        )
-        return InspectionResult(sorted_inputs, bar_area, scroll_area)
 
     def _detect_scroll_bar_area(
         self,

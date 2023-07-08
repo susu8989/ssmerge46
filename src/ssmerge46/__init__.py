@@ -1,7 +1,7 @@
 import io
 import logging
 import random
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -182,7 +182,11 @@ async def on_message(message: Message):
             )
         return
 
-    if MASANORI and random.random() < 0.03 and len(content) <= 32:
+    if (
+        MASANORI
+        and random.random() < (0.3 if date.today() == date(2023, 7, 9) else 0.03)
+        and len(content) <= 32
+    ):
         if content.endswith("本命は？") or content.endswith("本命教えて"):
             msg = "フェーングロッテン"
         elif content == "まさのり":
