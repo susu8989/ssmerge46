@@ -2,7 +2,11 @@ from distutils.util import strtobool
 from os import environ
 
 # Token for discord bot
-TOKEN = environ["TOKEN"]
+TOKEN = environ.get("TOKEN", "")
+if not TOKEN:
+    raise Exception("'TOKEN' environment variable is required.")
+
+FLASK_PORT = int(environ.get("FLASK_PORT", 8080))
 
 # Max number of input files per request
 MAX_ATTACHMENTS = int(environ.get("MAX_ATTACHMENTS", 12))

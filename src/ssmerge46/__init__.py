@@ -1,7 +1,7 @@
 import io
 import logging
 import random
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -12,7 +12,9 @@ from discord import ChannelType, Client, File, Intents, Message
 
 import cv2wrap
 from cv2wrap.image import BgrImage
+from ssmerge46 import web
 from ssmerge46.config import (
+    FLASK_PORT,
     MASANORI,
     MAX_ATTACHMENTS,
     MAX_RESOLUTION,
@@ -207,6 +209,7 @@ def _get_random_msg() -> Optional[str]:
 
 
 def start():
+    web.run(FLASK_PORT)
     client.run(TOKEN)
 
 
