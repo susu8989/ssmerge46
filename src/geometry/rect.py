@@ -6,7 +6,20 @@ from geometry.vector import Vector2d, VectorLike
 
 
 class Rect(tuple[float, float, float, float]):
+    """(2次元上の) 矩形領域."""
+
     def __new__(cls, x: float, y: float, w: float, h: float) -> Self:
+        """矩形領域インスタンスを生成する.
+
+        Args:
+            x (float): 左上X座標.
+            y (float): 左上Y座標.
+            w (float): 幅.
+            h (float): 高さ.
+
+        Returns:
+            Self: 新しいインスタンス.
+        """
         if w < 0:
             x = x + w
             w = -w
@@ -17,60 +30,74 @@ class Rect(tuple[float, float, float, float]):
 
     @property
     def x(self) -> float:
+        """左上X座標."""
         return self[0]
 
     @property
     def y(self) -> float:
+        """左上Y座標."""
         return self[1]
 
     @property
     def w(self) -> float:
+        """幅."""
         return self[2]
 
     @property
     def h(self) -> float:
+        """高さ."""
         return self[3]
 
     @property
     def x2(self) -> float:
+        """右下X座標."""
         return self.x + self.w
 
     @property
     def y2(self) -> float:
+        """右下Y座標."""
         return self.y + self.h
 
     @property
     def size(self) -> Vector2d:
+        """(幅, 高さ) で表される領域の大きさ."""
         return Vector2d(self.w, self.h)
 
     @property
     def topleft(self) -> Vector2d:
+        """左上座標."""
         return Vector2d(self.x, self.y)
 
     @property
     def topright(self) -> Vector2d:
+        """右上座標."""
         return Vector2d(self.x2, self.y)
 
     @property
     def botleft(self) -> Vector2d:
+        """左下座標."""
         return Vector2d(self.x, self.y2)
 
     @property
     def botright(self) -> Vector2d:
+        """右下座標."""
         return Vector2d(self.x2, self.y2)
 
     @property
     def center(self) -> Vector2d:
+        """領域の中心座標."""
         center_x = (self.x + self.x2) / 2
         center_y = (self.y + self.y2) / 2
         return Vector2d(center_x, center_y)
 
     @property
     def area(self) -> float:
+        """領域の面積."""
         return self.w * self.h
 
     @property
     def aspect_ratio(self) -> float:
+        """アスペクト比 (幅/高さ)."""
         return self.w / self.h
 
     def move(self, x: float, y: float) -> Self:
@@ -149,16 +176,8 @@ class Rect(tuple[float, float, float, float]):
     def expand_all(self, length: float) -> Self:
         return self.expand(length, length, length, length)
 
-    def to_int_tuple(
-        self, _round: bool = True, one_if_zero: bool = True
-    ) -> tuple[int, int, int, int]:
-        x, y, w, h = map(round if _round else int, self)  # type: ignore
-        if one_if_zero:
-            if w < 1:
-                w = 1
-            if h < 1:
-                h = 1
-        return x, y, w, h
+    def to_int_tuple(self, _round: bool = True) -> tuple[int, int, int, int]:
+        return tuple(map(round if _round else int, self))  # type: ignore
 
     def to_int_rect(self, _round: bool = True) -> Self:
         return self.from_xywh(*self.to_int_tuple(_round))

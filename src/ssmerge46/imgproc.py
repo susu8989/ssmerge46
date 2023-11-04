@@ -1,10 +1,12 @@
 from math import ceil
-from typing import List, Optional
+from typing import Collection, List, Optional
 
+import cv2
 import numpy as np
 
 from cv2wrap import BgrImage
 from geometry import Rect, Vector2d
+from ssmerge46.exception import ImageProcessingError
 
 
 def combine_left_to_right(imgs: List[BgrImage]) -> BgrImage:
@@ -102,3 +104,11 @@ def unmargin_rect(img: BgrImage, scan_px: Optional[int] = None) -> Rect:
     new_bot = int(np.max(scan_y_from_bot[0])) + 1
 
     return Rect.from_xyxy(new_left, new_top, new_right, new_bot)
+
+
+def stitch(imgs: Collection[BgrImage], mode: int = cv2.STITCHER_SCANS) -> BgrImage:
+    stitcher = cv2.Stitcher_create(mode)
+    status, stitched = stitcher.stitch(imgs)
+    if status != cv2.Stitcher_OK:
+        raise ImageProcessingError("スキャン合成に失敗しました。")
+    return stitched.view(BgrImage)

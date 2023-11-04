@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 import toml
 from discord import ChannelType, Client, File, Intents, Message
+from toml import TomlDecodeError
 
 import cv2wrap
 from cv2wrap.image import BgrImage
@@ -22,6 +23,7 @@ from ssmerge46.config import (
     MAX_RESOLUTION_3,
     TOKEN,
 )
+from ssmerge46.exception import InvalidInputError
 from ssmerge46.imgproc import combine_left_to_right, combine_squarely, combine_top_to_bot
 from ssmerge46.umamerge import ScrollStitcher
 
@@ -44,8 +46,8 @@ def _get_version() -> str:
     try:
         d = toml.load(Path(__file__).parent.parent.parent / "pyproject.toml")
         return d["tool"]["poetry"]["version"]
-    except Exception as e:
-        logger.warn(e, exc_info=True)
+    except (TypeError, TomlDecodeError) as e:
+        logger.warning(e, exc_info=True)
         return ""
 
 
@@ -134,8 +136,7 @@ async def on_message(message: Message):
                         resized = img
                     imgs.append(resized)
                 else:
-                    logger.warn(f"Invalid file type : {filename}")
-                    raise ValueError(
+                    raise InvalidInputError(
                         f"非対応の画像形式です。対応形式は {' / '.join( AVAILABLE_FILETYPES)}  です。 : {filename}"
                     )
 
@@ -167,8 +168,8 @@ async def on_message(message: Message):
 
             msg = _get_random_msg()
             await message.channel.send(msg, file=file)
-        except Exception as e:
-            logger.warn(e, exc_info=True)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.warning(e, exc_info=True)
             await message.channel.send(f"[ERROR] {e}")
         finally:
             author = message.author

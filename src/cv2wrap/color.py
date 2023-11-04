@@ -1,3 +1,4 @@
+"""色データクラスと既定色の定義."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -7,35 +8,77 @@ import numpy as np
 from typing_extensions import Self
 
 
+def _validate_range(name: str, val: int | float, lower: int | float, upper: int | float) -> None:
+    if val < lower or upper < val:
+        raise ValueError(f"The value '{name}' must be in [0, 255]. : {val}")
+
+
 class Color(ABC):
+    """色クラスの既定."""
+
     @abstractmethod
     def to_bgr(self) -> Bgr:
-        pass
+        """BGRで表現されるデータに変換する.
+
+        Returns:
+            Bgr: BGRで表現される色.
+        """
 
     @abstractmethod
     def to_hsv(self) -> Hsv:
-        pass
+        """HSVで表現されるデータに変換する.
+
+        Returns:
+            Hsv: HSVで表現される色.
+        """
 
     @abstractmethod
     def to_gray(self) -> GrayScale:
-        pass
+        """グレースケールで表現されるデータに変換する.
+
+        Returns:
+            GrayScale: グレースケールで表現される色.
+        """
 
 
 class Bgr(tuple, Color):
-    b: int  # 0-255
-    g: int  # 0-255
-    r: int  # 0-255
+    """BGR形式で表現される色.
+
+    Attributes:
+        b (int): Blue (0-255).
+        g (int): Green (0-255).
+        r (int): Red (0-255).
+    """
+
+    @property
+    def b(self) -> int:
+        """Blue (0-255)."""
+        return self[0]
+
+    @property
+    def g(self) -> int:
+        """Green (0-255)."""
+        return self[1]
+
+    @property
+    def r(self) -> int:
+        """Red (0-255)."""
+        return self[2]
 
     def __new__(cls, b: int, g: int, r: int) -> Self:
-        # TODO: validate range
+        _validate_range("b", b, 0, 255)
+        _validate_range("g", b, 0, 255)
+        _validate_range("r", b, 0, 255)
         return tuple.__new__(cls, (b, g, r))
 
     @classmethod
     def from_bgr(cls, b: int, g: int, r: int) -> Self:
+        """BGR値からインスタンスを生成する."""
         return cls(b, g, r)
 
     @classmethod
     def from_rgb(cls, r: int, g: int, b: int) -> Self:
+        """RGB値からインスタンスを生成する."""
         return cls(b, g, r)
 
     def to_bgr(self) -> Bgr:
@@ -49,12 +92,33 @@ class Bgr(tuple, Color):
 
 
 class Hsv(tuple, Color):
-    h: int  # 0-179
-    s: int  # 0-255
-    v: int  # 0-255
+    """HSV形式で表現される色.
 
-    def __new__(cls, h: int, s: int, v: int) -> Hsv:
-        # TODO: validate range
+    Attributes:
+        h (int): Hue (0-179).
+        s (int): Saturation (0-255).
+        v (int): Value (0-255).
+    """
+
+    @property
+    def h(self) -> int:
+        """Hue (0-179)."""
+        return self[0]
+
+    @property
+    def s(self) -> int:
+        """Saturation (0-255)."""
+        return self[1]
+
+    @property
+    def v(self) -> int:
+        """Value (0-255)."""
+        return self[2]
+
+    def __new__(cls, h: int, s: int, v: int) -> Self:
+        _validate_range("h", h, 0, 179)
+        _validate_range("s", s, 0, 255)
+        _validate_range("v", v, 0, 255)
         return tuple.__new__(cls, (h, s, v))
 
     def to_bgr(self) -> Bgr:
@@ -68,6 +132,8 @@ class Hsv(tuple, Color):
 
 
 class GrayScale(int, Color):
+    """HSV形式で表現される色."""
+
     def to_bgr(self) -> Bgr:
         return gray2bgr(self)
 

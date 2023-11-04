@@ -61,16 +61,16 @@ class ScrollStitcher:
     def stitch_retryable(
         self,
         imgs: Sequence[BgrImage],
-        overlap_ratios: Iterable[float] = [0.2],
-        match_threshs: Iterable[float] = [0.5],
+        overlap_ratios: Iterable[float] = (0.2,),
+        match_threshs: Iterable[float] = (0.5,),
     ) -> BgrImage:
         """画像を結合する. 結合に失敗した場合はパラメータを順に変更しながらリトライする.
 
         Args:
             imgs (Sequence[BgrImage]): 入力とする画像の一覧.
-            overlap_ratio (Iterable[float], optional): 結合位置検出に使うのりしろの標準比率 (0-1). Defaults to [0.2].
+            overlap_ratio (Iterable[float], optional): 結合位置検出に使うのりしろの標準比率 (0-1). Defaults to (0.2,).
                 スクロールエリアの高さにこの数値をかけた高さをのりしろ領域とみなし, 1つ前の画像との共通部分を探します.
-            match_thresh (Iterable[float], optional): テンプレートマッチングを行う際の閾値 (0-1). Defaults to [0.5].
+            match_thresh (Iterable[float], optional): テンプレートマッチングを行う際の閾値 (0-1). Defaults to (0.5,).
 
         Raises:
             InvalidInputImageError: 入力画像が異常な場合.
@@ -123,6 +123,18 @@ class ScrollStitcher:
         return self._process(pre_processed, overlap_ratio, match_thresh)
 
     def _pre_process(self, imgs: Sequence[BgrImage]) -> _PreProcessedData:
+        """入力画像の前処理 (切り抜き, リサイズ, スクロール検出, ソート) を行う.
+
+        Args:
+            imgs (Sequence[BgrImage]): 入力画像のシーケンス.
+
+        Raises:
+            InvalidInputImageError: _description_
+            ImageProcessingError: _description_
+
+        Returns:
+            _PreProcessedData: _description_
+        """
         base = imgs[0]
         for i, img in enumerate(imgs):
             img_num = i + 1

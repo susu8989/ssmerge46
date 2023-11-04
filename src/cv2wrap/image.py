@@ -30,14 +30,14 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
 
     def __new__(cls, arr: npt.ArrayLike) -> Self:
         if inspect.isabstract(cls):
-            raise TypeError("Can't instantiate abstract class {}".format(cls.__name__))
+            raise TypeError(f"Can't instantiate abstract class {cls.__name__}")
 
-        obj = np.array(arr, dtype=np.uint8).view(cls)
-        if not obj._is_valid():
+        view: Self = np.array(arr, dtype=np.uint8).view(cls)
+        if not view._is_valid():  # pylint: disable=no-member
             raise ValueError(
-                f"Invalid shape : input_shape={obj.shape}" + f", required_shape={cls._DIMS}"
+                f"Invalid shape : input_shape={view.shape}" + f", required_shape={cls._DIMS}"
             )
-        return obj
+        return view
 
     # - __magic__
 
@@ -54,7 +54,7 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
         if results is NotImplemented:
             return NotImplemented
         if method == "at":
-            return
+            return None
 
         if isinstance(results, np.ndarray) and is_valid_shape(results.shape, self._DIMS):
             return results.view(self.__class__)
@@ -336,4 +336,4 @@ class GrayImage(Cv2Image):
 def is_valid_shape(shape_to_check: Sequence[int], shape_limitation: Sequence[int]) -> bool:
     if len(shape_to_check) != len(shape_limitation):
         return False
-    return all(l == -1 or c == l for c, l in zip(shape_to_check, shape_limitation, strict=True))
+    return all(l in (-1, c) for c, l in zip(shape_to_check, shape_limitation, strict=True))
