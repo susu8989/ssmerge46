@@ -1,5 +1,5 @@
 from math import ceil
-from typing import Collection, List, Optional
+from typing import Sequence
 
 import cv2
 import numpy as np
@@ -9,7 +9,7 @@ from geometry import Rect, Vector2d
 from ssmerge46.exception import ImageProcessingError
 
 
-def combine_left_to_right(imgs: List[BgrImage]) -> BgrImage:
+def combine_left_to_right(imgs: list[BgrImage]) -> BgrImage:
     base = imgs[0]
     to_stack = [base]
     for img in imgs[1:]:
@@ -19,7 +19,7 @@ def combine_left_to_right(imgs: List[BgrImage]) -> BgrImage:
     return np.hstack(to_stack).view(BgrImage)
 
 
-def combine_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
+def combine_top_to_bot(imgs: list[BgrImage]) -> BgrImage:
     base = imgs[0]
     to_stack = [base]
     for img in imgs[1:]:
@@ -29,7 +29,7 @@ def combine_top_to_bot(imgs: List[BgrImage]) -> BgrImage:
     return np.vstack(to_stack).view(BgrImage)
 
 
-def combine_squarely(imgs: List[BgrImage]) -> BgrImage:
+def combine_squarely(imgs: list[BgrImage]) -> BgrImage:
     base = imgs[0]
     num_imgs = len(imgs)
     num_cols = min(
@@ -52,19 +52,19 @@ def combine_squarely(imgs: List[BgrImage]) -> BgrImage:
     return result.view(BgrImage)
 
 
-def unmargin(img: BgrImage, scan_px: Optional[int] = None) -> BgrImage:
+def unmargin(img: BgrImage, scan_px: int | None = None) -> BgrImage:
     rect = unmargin_rect(img, scan_px=scan_px)
     return img.crop(rect)
 
 
-def unmargin_rect(img: BgrImage, scan_px: Optional[int] = None) -> Rect:
+def unmargin_rect(img: BgrImage, scan_px: int | None = None) -> Rect:
     """画像の上下左右の各辺において, 中央の色を基準にして同色部分の余白を取り除いた領域を取得する.
 
     各辺それぞれで画像端から中心に向けて画像を走査し, 異なる色が1つでも出現した行または列までを余白とする.
 
     Args:
         img (BgrImage): 余白を探す画像.
-        scan_px (Optional[int], optional): 走査する幅 (px). デフォルトでは辺の全てを対象とする.
+        scan_px (int | None, optional): 走査する幅 (px). デフォルトでは辺の全てを対象とする.
 
     Returns:
         Rect: 余白を取り除いた領域.
@@ -106,8 +106,8 @@ def unmargin_rect(img: BgrImage, scan_px: Optional[int] = None) -> Rect:
     return Rect.from_xyxy(new_left, new_top, new_right, new_bot)
 
 
-def stitch(imgs: Collection[BgrImage], mode: int = cv2.STITCHER_SCANS) -> BgrImage:
-    stitcher = cv2.Stitcher_create(mode)
+def cv2_stitch(imgs: Sequence[BgrImage], mode: int = cv2.STITCHER_SCANS) -> BgrImage:
+    stitcher = cv2.Stitcher.create(mode)
     status, stitched = stitcher.stitch(imgs)
     if status != cv2.Stitcher_OK:
         raise ImageProcessingError("スキャン合成に失敗しました。")

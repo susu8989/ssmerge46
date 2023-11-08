@@ -7,9 +7,9 @@ from ssmerge46.exception import BotConfigError
 def _to_bool(val: str) -> bool:
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
-        return 1
+        return True
     if val in ("n", "no", "f", "false", "off", "0"):
-        return 0
+        return False
     raise ValueError(f"Failed to convert value. : {val}")
 
 

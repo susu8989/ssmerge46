@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Collection, Dict, List, Optional, Tuple, TypeVar
+from typing import Collection, Dict, List, Tuple, TypeVar
 
 import cv2
 import numpy as np
@@ -22,7 +22,7 @@ class MatchingResult:
     template: Template  # マッチしたテンプレート
 
 
-def _match_template(img: BgrImage, tmpl: Template, tgt: Optional[Rect] = None) -> GrayImage:
+def match_template(img: BgrImage, tmpl: Template, tgt: Rect | None = None) -> GrayImage:
     cropped = img.crop(tgt) if tgt else img
     w, h = cropped.wh
     if h == 0 or w == 0:
@@ -32,7 +32,7 @@ def _match_template(img: BgrImage, tmpl: Template, tgt: Optional[Rect] = None) -
     t_w, t_h = tmpl.img.wh
     if h < t_h or w < t_w:
         print(f"Image size ({w}, {h}) is smaller than template size ({t_w}, {t_h}).")
-        return np.empty((0, 0), float)
+        return np.empty((0, 0), float).view(GrayImage)
 
     preproccessed = tmpl.preprocess(cropped)
     return cv2.matchTemplate(preproccessed, tmpl.img, cv2.TM_CCOEFF_NORMED)
@@ -41,26 +41,26 @@ def _match_template(img: BgrImage, tmpl: Template, tgt: Optional[Rect] = None) -
 def match_max(
     img: BgrImage,
     tmpl: Template[T],
-    thresh: Optional[float] = None,
-    tgt: Rect = None,
-) -> Tuple[Optional[Rect], float]:
+    thresh: float | None = None,
+    tgt: Rect | None = None,
+) -> Tuple[Rect | None, float]:
     """テンプレートマッチングを実行し, 類似度が最大になる矩形領域を返す.
 
     Args:
         img (BgrImage): 被検索対象画像.
         tmpl (Template[T]): 検索するテンプレート画像.
-        thresh (Optional[float], optional): 類似度の閾値 (0.0-1.0). Defaults to None.
-        tgt (Rect, optional): img 中で検索対象とする領域. Defaults to None.
+        thresh (float | None, optional): 類似度の閾値 (0.0-1.0). Defaults to None.
+        tgt (Rect | None, optional): img 中で検索対象とする領域. Defaults to None.
 
     Returns:
-        Tuple[Optional[Rect], float]: (類似度が最大になる矩形領域, 類似度) の tuple.
+        Tuple[Rect | None, float]: (類似度が最大になる矩形領域, 類似度) の tuple.
         類似度が thresh 未満だった場合の1要素目は None になる.
     """
-    result = _match_template(img, tmpl, tgt=tgt)
+    result = match_template(img, tmpl, tgt=tgt)
     _, max_score, _, max_loc = cv2.minMaxLoc(result)
 
     tmpl_h, tmpl_w = tmpl.img.shape[:2]
-    rect = Rect.from_xywh(*max_loc, tmpl_w, tmpl_h)
+    rect = Rect.from_xywh(max_loc[0], max_loc[1], tmpl_w, tmpl_h)
     if tgt:
         rect = rect.move(*tgt.topleft)
 
@@ -79,7 +79,7 @@ def match_all(
     img: BgrImage,
     tmpls: Collection[Template[T]],
     thresh: float,
-    tgt: Optional[Rect] = None,
+    tgt: Rect | None = None,
     nms_thresh: float = 0.6,
 ) -> Dict[T, List[Rect]]:
     """複数のテンプレート画像に対してテンプレートマッチングを実行し, 各テンプレート毎にマッチした領域のリストを返す.
@@ -88,7 +88,7 @@ def match_all(
         img (BgrImage): 被検索対象画像.
         tmpls (Collection[Template[T]]): 検索するテンプレート画像群.
         thresh (float): 類似度の閾値 (0.0-1.0). Defaults to None.
-        tgt (Optional[Rect], optional): img 中で検索対象とする領域. Defaults to None.
+        tgt (Rect | None, optional): img 中で検索対象とする領域. Defaults to None.
         nms_thresh (float, optional): マッチした領域に対して実施するNMS処理の閾値. Defaults to 0.6.
 
     Returns:
@@ -106,7 +106,7 @@ def match_all(
     keys = []
     for tmpl in tmpls:
         tmpl = tmpl.fit_resolution((w, h))
-        result = _match_template(cropped, tmpl)
+        result = match_template(cropped, tmpl)
 
         if result.size > 0:
             tgt_x, tgt_y = tgt.topleft
@@ -138,20 +138,20 @@ def match_best(
     img: BgrImage,
     tmpls: Collection[Template[T]],
     thresh: float,
-    default: Optional[T] = None,
-    tgt: Optional[Rect] = None,
-) -> Tuple[Optional[T], Optional[Rect]]:
+    default: T | None = None,
+    tgt: Rect | None = None,
+) -> Tuple[T | None, Rect | None]:
     """複数のテンプレート画像に対してテンプレートマッチングを実行し, 類似度が最大となるテンプレートとその矩形領域を返す.
 
     Args:
         img (BgrImage): 被検索対象画像.
         tmpls (Collection[Template[T]]): 検索するテンプレート画像群.
         thresh (float): 類似度の閾値 (0.0-1.0). Defaults to None.
-        default (Optional[T], optional): マッチするものが見つからなかった場合のデフォルト値. Defaults to None.
-        tgt (Optional[Rect], optional): img 中で検索対象とする領域. Defaults to None.
+        default (T | None, optional): マッチするものが見つからなかった場合のデフォルト値. Defaults to None.
+        tgt (Rect | None, optional): img 中で検索対象とする領域. Defaults to None.
 
     Returns:
-        Tuple[Optional[T], Optional[Rect]: (類似度が最大となるテンプレート, およびその矩形領域) で表される tuple.
+        Tuple[T | None, Rect | None: (類似度が最大となるテンプレート, およびその矩形領域) で表される tuple.
             類似度が thresh 未満だった場合は (deafult, None) を返す.
     """
     key_rect_val = [

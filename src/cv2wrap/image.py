@@ -160,16 +160,18 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
         cropping_rect = self.rect.cut_with_fixed_aspect_ratio(aspect_ratio)
         return self.crop(cropping_rect)
 
-    def put_img(self, img: Self, pos: VectorLike) -> Self:
+    def put_img(self, img: Self, pos: VectorLike, inplace: bool | None = False) -> Self:
         """指定した位置に画像を配置して上書きする.
 
         Args:
             img (Self): 配置する画像.
             pos (VectorLike): 配置する位置.
+            inplace (bool | None): img を直接書き換えるか. Defaults to False.
 
         Returns:
-            Self: img を配置した新しいインスタンス.
+            Self: このインスタンス上に img を配置した画像.
         """
+        new = self if inplace else self.copy()
         rect = img.rect.move(*pos)
         intersection = self.rect.intersection(rect)
 
@@ -177,7 +179,6 @@ class Cv2Image(npt.NDArray[np.uint8], ABC):
         x, y = map(int, pos)
         x2 = x + w
         y2 = y + h
-        new = self.copy()
         new[y:y2, x:x2] = img[0:h, 0:w]
         return new
 

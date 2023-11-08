@@ -3,7 +3,7 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -11,7 +11,6 @@ import toml
 from discord import ChannelType, Client, File, Intents, Message
 from toml import TomlDecodeError
 
-import cv2wrap
 from cv2wrap.image import BgrImage
 from ssmerge46 import web
 from ssmerge46.config import (
@@ -24,7 +23,12 @@ from ssmerge46.config import (
     TOKEN,
 )
 from ssmerge46.exception import InvalidInputError
-from ssmerge46.imgproc import combine_left_to_right, combine_squarely, combine_top_to_bot
+from ssmerge46.imgproc import (
+    combine_left_to_right,
+    combine_squarely,
+    combine_top_to_bot,
+    cv2_stitch,
+)
 from ssmerge46.umamerge import ScrollStitcher
 
 logger = logging.getLogger("discord")
@@ -113,7 +117,7 @@ async def on_message(message: Message):
             await message.channel.send(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
             return
 
-        imgs: List[BgrImage] = []
+        imgs: list[BgrImage] = []
         try:
             if attachments_len <= 4:
                 resolution_limit = MAX_RESOLUTION
@@ -151,18 +155,22 @@ async def on_message(message: Message):
                 merged = combine_squarely(imgs)
             elif content.startswith("/ssms"):
                 # OpenCV Sticher
-                merged = cv2wrap.stitch(imgs)
+                merged = cv2_stitch(imgs)
             else:
                 # Scroll area Stitcher
-                merged = stitcher.stitch_retryable(
-                    imgs, overlap_ratios=(0.2, 0.15, 0.1), match_threshs=(0.75, 0.8, 0.9)
+                debug_enabled: bool = "debug" in content.split(" ")
+                merged = stitcher.stitch(
+                    imgs,
+                    overlap_ratios=(0.2, 0.15, 0.1),
+                    match_threshs=(0.85, 0.85, 0.9),
+                    debug=debug_enabled,
                 )
 
             logger.info("Merged. : %s", merged.wh)
             success, encoded = cv2.imencode(".png", merged)
             if not success:
                 await message.channel.send("出力画像のエンコードに失敗しました。")
-            data = io.BytesIO(encoded)
+            data = io.BytesIO(encoded)  # type: ignore
             now_str = now.strftime("%Y%m%d%H%M%S%f")[:-3]
             file = file = File(data, f"{now_str}.png")
 
