@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pickle import TRUE
 from typing import Iterable, Optional, Sequence
 
 import cv2
@@ -82,10 +81,15 @@ class StitchResult:
 
         parts: list[BgrImage] = []  # 結合画像リスト
         for i, img in enumerate(cropped_imgs):
-            max_loc_y = self.matching_results[i].max_loc_y if i == len(cropped_imgs) else None
-            query_h = self.query_rect.h / 2
-            top_y = int(scroll_area.y + (0 if i == 0 else query_h / 2))
-            bot_y = int((max_loc_y + (query_h / 2)) if max_loc_y else scroll_area.y2)
+            max_loc_y = self.matching_results[i].max_loc_y if i < len(cropped_imgs) - 1 else None
+            half_query_height = self.query_rect.h / 2
+            top_y = int(scroll_area.y + (0 if i == 0 else half_query_height))
+            bot_y = int(
+                (scroll_area.y + max_loc_y + half_query_height)
+                if i < len(cropped_imgs) - 1
+                else scroll_area.y2
+            )
+            print(top_y, bot_y)
             parts.append(img[top_y:bot_y])
         return parts
 
