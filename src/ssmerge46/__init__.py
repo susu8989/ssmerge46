@@ -22,7 +22,7 @@ from ssmerge46.config import (
     MAX_RESOLUTION_3,
     TOKEN,
 )
-from ssmerge46.exception import InvalidInputError
+from ssmerge46.exception import InvalidInputError, InvalidInputImageError
 from ssmerge46.imgproc import (
     combine_left_to_right,
     combine_squarely,
@@ -103,22 +103,32 @@ async def on_message(message: Message):
     content = message.content
 
     if message.channel.type == ChannelType.private or content.startswith("/ssm"):
+        status = "OK"
         attachments = message.attachments
         attachments_len = len(attachments)
         if attachments_len == 0:
             await message.channel.send(USAGE)
             return
-        if attachments_len < 2:
-            await message.channel.send(
-                f"画像を2枚以上送信してください。対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。"
-            )
-            return
-        if attachments_len > MAX_ATTACHMENTS:
-            await message.channel.send(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
-            return
+
+        logger.info(
+            "[%s %s] [%s %s %s] request: %s",
+            message.guild,
+            message.channel,
+            message.author.id,
+            message.author.name,
+            message.author.display_name,
+            content,
+        )
 
         imgs: list[BgrImage] = []
         try:
+            if attachments_len < 2:
+                raise InvalidInputImageError(
+                    f"画像を2枚以上送信してください。対応形式は {' / '.join( AVAILABLE_FILETYPES)} です。"
+                )
+            if attachments_len > MAX_ATTACHMENTS:
+                raise InvalidInputImageError(f"結合できる画像は 最大{MAX_ATTACHMENTS}枚 です。")
+
             if attachments_len <= 4:
                 resolution_limit = MAX_RESOLUTION
             elif attachments_len <= 9:
@@ -177,19 +187,20 @@ async def on_message(message: Message):
             msg = _get_random_msg()
             await message.channel.send(msg, file=file)
         except Exception as e:  # pylint: disable=broad-exception-caught
+            status = "ERROR"
             logger.warning(e, exc_info=True)
             await message.channel.send(f"[ERROR] {e}")
         finally:
-            author = message.author
             logger.info(
-                "[%s %s] [%s %s %s] %d %s",
+                "[%s %s] [%s %s %s] done: %s [%d] -> [%s]",
                 message.guild,
                 message.channel,
-                author.id,
-                author.name,
-                author.display_name,
-                len(attachments),
+                message.author.id,
+                message.author.name,
+                message.author.display_name,
                 content,
+                attachments_len,
+                status,
             )
         return
 

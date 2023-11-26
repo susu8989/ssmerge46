@@ -31,7 +31,7 @@ class InvalidSettingError(InvalidInputError):
 
 
 class InvalidInputImageError(InvalidInputError):
-    """無効な入力画像を."""
+    """無効な入力画像を受け取った場合の例外."""
 
 
 class DetectionError(BotProcessingError):

@@ -85,11 +85,8 @@ class StitchResult:
             half_query_height = self.query_rect.h / 2
             top_y = int(scroll_area.y + (0 if i == 0 else half_query_height))
             bot_y = int(
-                (scroll_area.y + max_loc_y + half_query_height)
-                if i < len(cropped_imgs) - 1
-                else scroll_area.y2
+                (scroll_area.y + max_loc_y + half_query_height) if max_loc_y else scroll_area.y2
             )
-            print(top_y, bot_y)
             parts.append(img[top_y:bot_y])
         return parts
 
@@ -118,7 +115,13 @@ class StitchResult:
                     else:
                         x1 = int(dbg_img.w - score * score_w)
                         x2 = dbg_img.w
-                    color = RED if loc_y == max_loc_y else GREEN
+
+                    if loc_y == max_loc_y:
+                        color = RED
+                    elif score < self.match_thresh:
+                        color = Bgr(0, 128, 0)
+                    else:
+                        color = GREEN
                     dbg_img[y, x1:x2] = color
 
             target_y += max_loc_y
