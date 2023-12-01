@@ -31,3 +31,4 @@ MAX_RESOLUTION_3 = int(environ.get("MAX_RESOLUTION", 540 * 960))
 
 # Private joke
 MASANORI = _to_bool(environ.get("MASANORI", "0"))
+MASANORI_RATE = float(environ.get("MASANORI_RATE", 0.03))

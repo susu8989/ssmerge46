@@ -16,6 +16,7 @@ from ssmerge46 import web
 from ssmerge46.config import (
     FLASK_PORT,
     MASANORI,
+    MASANORI_RATE,
     MAX_ATTACHMENTS,
     MAX_RESOLUTION,
     MAX_RESOLUTION_2,
@@ -204,7 +205,7 @@ async def on_message(message: Message):
             )
         return
 
-    if MASANORI and random.random() < 0.03 and len(content) <= 32:
+    if MASANORI and random.random() < MASANORI_RATE and len(content) <= 32:
         if content.endswith("本命は？") or content.endswith("本命教えて"):
             msg = "フェーングロッテン"
         elif content == "まさのり":
