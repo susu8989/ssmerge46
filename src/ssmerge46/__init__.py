@@ -139,7 +139,7 @@ async def on_message(message: Message):
 
             for attachment in attachments:
                 filename = attachment.filename
-                if filename.endswith(AVAILABLE_FILETYPES):
+                if filename.lower().endswith(AVAILABLE_FILETYPES):
                     buf = await attachment.read()
                     arr = np.frombuffer(buf, np.uint8)
                     img = BgrImage.decode(arr)
@@ -152,7 +152,7 @@ async def on_message(message: Message):
                     imgs.append(resized)
                 else:
                     raise InvalidInputError(
-                        f"非対応の画像形式です。対応形式は {' / '.join( AVAILABLE_FILETYPES)}  です。 : {filename}"
+                        f"非対応の画像形式です。対応形式は {' / '.join(AVAILABLE_FILETYPES)}  です。 : {filename}"
                     )
 
             if content.startswith("/ssmh"):
