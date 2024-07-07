@@ -3,6 +3,9 @@
 tmp/
 log/
 logs/
+*.bak
+*.tmp
+*.log
 
 # fly.io
 fly.toml

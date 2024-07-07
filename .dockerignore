@@ -8,6 +8,10 @@ logs
 fly.toml
 Procfile
 
+**/*.bak
+**/*.tmp
+**/*.log
+
 **/__pycache__
 **/*.pyc
 **/*.pyo
